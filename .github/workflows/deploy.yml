@@ -1,0 +1,69 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── 1. CI: PHP-Syntax prüfen ──────────────────────────────────
+  lint:
+    name: PHP Syntax Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.2 einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Composer validieren
+        run: composer validate --strict
+        working-directory: api
+
+      - name: Abhängigkeiten installieren
+        run: composer install --no-dev --optimize-autoloader
+        working-directory: api
+
+      - name: PHP-Syntax aller Dateien prüfen
+        run: find api/src -name "*.php" | xargs -I{} php -l {}
+
+  # ── 2. Deploy via rsync + SSH ─────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: lint   # nur deployen wenn lint erfolgreich
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.2 einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Composer (ohne Dev-Pakete)
+        run: composer install --no-dev --optimize-autoloader
+        working-directory: api
+
+      - name: SSH-Key einrichten
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Dateien via rsync übertragen
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT || 22 }}" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='api/config/*.local.php' \
+            --exclude='api/config/database.local.php' \
+            --exclude='data/*.geojson' \
+            --exclude='*.bak.*' \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
