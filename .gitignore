@@ -3,3 +3,11 @@ api/config/database.local.php
 api/config/app.local.php
 data/*.geojson
 .env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes

@@ -17,10 +17,10 @@
 CREATE DATABASE cachecounty CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Dann `schema.sql` einspielen:
+Dann `database.sql` einspielen:
 
 ```bash
-mysql -u user -p cachecounty < schema.sql
+mysql -u user -p cachecounty < database.sql
 ```
 
 ### 2. Konfiguration
@@ -32,7 +32,11 @@ cp api/config/app.php      api/config/app.local.php
 
 Beide Dateien mit den eigenen Werten befüllen. Sie werden nicht versioniert.
 
-### 3. Composer Autoloader installieren
+`database.local.php` – Datenbankzugangsdaten (Host, Name, User, Passwort).
+
+`app.local.php` – Basis-URL, E-Mail-Absender und SMTP-Zugangsdaten für den Magic-Link-Versand (PHPMailer).
+
+### 3. Composer-Abhängigkeiten installieren
 
 ```bash
 cd api
@@ -41,7 +45,7 @@ composer install --optimize-autoloader
 
 ### 4. Document Root
 
-Den Webserver so konfigurieren, dass `api/public/` als Document Root der API dient.  
+Den Webserver so konfigurieren, dass `api/public/` als Document Root der API dient.
 Beispiel für eine Subdomain `api.deine-domain.de → /pfad/zu/cachecounty/api/public/`.
 
 Das Frontend (`app/`) liegt separat und kann direkt als statische Seite ausgeliefert werden.
@@ -90,19 +94,22 @@ cachecounty/
 
 ## API-Endpunkte
 
-| Method | Endpunkt                       | Auth    |
-|--------|--------------------------------|---------|
-| GET    | /api/countries                 | –       |
-| GET    | /api/map/{username}            | –       |
-| POST   | /api/auth/magic-link           | –       |
-| GET    | /api/auth/verify?token=…       | –       |
-| POST   | /api/auth/logout               | Session |
-| POST   | /api/regions/{code}/visit      | Session |
-| PUT    | /api/regions/{code}/visit      | Session |
-| DELETE | /api/regions/{code}/visit      | Session |
-| GET    | /api/admin/users               | Admin   |
-| POST   | /api/admin/users               | Admin   |
-| PATCH  | /api/admin/users/{id}          | Admin   |
-| DELETE | /api/admin/users/{id}          | Admin   |
+| Method | Endpunkt                          | Auth    |
+|--------|-----------------------------------|---------|
+| GET    | /api/countries                    | –       |
+| GET    | /api/map/{username}               | –       |
+| POST   | /api/auth/magic-link              | –       |
+| GET    | /api/auth/verify?token=…          | –       |
+| GET    | /api/auth/me                      | Session |
+| POST   | /api/auth/logout                  | Session |
+| POST   | /api/regions/{code}/visit         | Session |
+| PUT    | /api/regions/{code}/visit         | Session |
+| DELETE | /api/regions/{code}/visit         | Session |
+| GET    | /api/admin/users                  | Admin   |
+| POST   | /api/admin/users                  | Admin   |
+| PATCH  | /api/admin/users/{id}             | Admin   |
+| DELETE | /api/admin/users/{id}             | Admin   |
+| GET    | /api/admin/sessions               | Admin   |
+| DELETE | /api/admin/sessions/{token}       | Admin   |
 
 Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`.
