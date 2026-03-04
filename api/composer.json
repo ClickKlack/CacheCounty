@@ -1,0 +1,17 @@
+{
+    "name": "cachecounty/api",
+    "description": "CacheCounty REST API",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "CacheCounty\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

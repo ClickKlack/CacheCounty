@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de" class="admin-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/app/">
+  <title>CacheCounty – Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="admin-page">
+
+  <header id="app-header">
+    <div class="header-inner">
+      <a href="index.html" class="logo" style="text-decoration:none">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Cache<em>County</em></span>
+      </a>
+      <div class="header-center">
+        <span class="admin-header-title">Admin</span>
+      </div>
+      <div class="header-right">
+        <div id="auth-area"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="admin-container">
+
+      <div class="admin-section-header">
+        <h1 class="admin-h1">Benutzerverwaltung</h1>
+        <button id="btn-new-user" class="btn btn-primary">+ Neuer User</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th class="col-email">E-Mail</th>
+              <th>Status</th>
+              <th class="col-date">Erstellt</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body">
+            <tr><td colspan="5" class="table-empty">Wird geladen…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="admin-section-header" style="margin-top: 40px;">
+        <h2 class="admin-h2">Aktive Sessions</h2>
+        <button id="btn-refresh-sessions" class="btn btn-secondary">↻ Aktualisieren</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th class="col-email">IP-Adresse</th>
+              <th>Browser</th>
+              <th class="col-date">Angemeldet</th>
+              <th class="col-date">Zuletzt aktiv</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="session-table-body">
+            <tr><td colspan="6" class="table-empty">Wird geladen…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ── Neuer User Dialog ── -->
+  <div id="user-dialog" class="dialog hidden" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="dialog-inner">
+      <button class="dialog-close" id="dialog-close" aria-label="Schließen">✕</button>
+      <div class="dialog-header">
+        <div class="dialog-badge">◈</div>
+        <div>
+          <h2 id="dialog-title">Neuer User</h2>
+          <p class="dialog-sub">Account anlegen – User erhält Login per Magic Link.</p>
+        </div>
+      </div>
+      <div class="create-form">
+        <div class="form-group">
+          <label for="form-username">Username</label>
+          <input type="text" id="form-username" class="form-input" placeholder="MaxMustermann" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="form-email">E-Mail-Adresse</label>
+          <input type="email" id="form-email" class="form-input" placeholder="max@example.com" autocomplete="off">
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="form-is-admin">
+          <span>Admin-Rechte vergeben</span>
+        </label>
+        <div class="form-actions">
+          <button id="btn-create" class="btn btn-primary">User anlegen</button>
+        </div>
+        <p id="form-msg" class="login-msg hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop hidden"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

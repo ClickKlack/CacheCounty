@@ -1,0 +1,22 @@
+[
+  {
+    "code": "DE",
+    "label": "Deutschland",
+    "state_label": "Bundesland",
+    "geojson": "data/de_landkreise.geojson",
+    "region_name_property": "GEN",
+    "region_code_property": "AGS",
+    "state_name_property": "BL",
+    "state_code_property": "BL_ID"
+  },
+  {
+    "code": "AT",
+    "label": "Österreich",
+    "state_label": "Bundesland",
+    "geojson": "data/at_bezirke.geojson",
+    "region_name_property": "PB",
+    "region_code_property": "PB_ID",
+    "state_name_property": "BL",
+    "state_code_property": "BL_ID"
+  }
+]

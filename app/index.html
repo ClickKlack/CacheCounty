@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/app/">
+  <title>CacheCounty</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <header id="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Cache<em>County</em></span>
+      </div>
+      <div class="header-center">
+        <select id="country-select" class="country-select" aria-label="Land auswählen"></select>
+      </div>
+      <div class="header-right">
+        <div id="auth-area">
+          <button id="btn-login" class="btn btn-ghost">Anmelden</button>
+        </div>
+      </div>
+    </div>
+    <div id="stats-bar" class="stats-bar hidden">
+      <span id="stats-text"></span>
+      <div id="stats-progress"><div id="stats-fill"></div></div>
+    </div>
+  </header>
+
+  <main id="map-container">
+    <div id="map"></div>
+
+    <!-- ── Bundesland-Panel ── -->
+    <div id="state-panel" class="state-panel">
+      <button id="state-panel-toggle" class="state-panel-toggle" aria-label="Panel ein-/ausblenden">
+        <span class="toggle-arrow">&#8250;</span>
+      </button>
+      <div class="state-panel-inner">
+        <div class="state-panel-header">
+          <span id="state-panel-title" class="state-panel-title">Bundesländer</span>
+          <div class="state-panel-actions">
+            <button id="btn-states-all"  class="btn-state-quick">Alle</button>
+            <button id="btn-states-none" class="btn-state-quick">Keine</button>
+          </div>
+        </div>
+        <ul id="state-list" class="state-list"></ul>
+      </div>
+    </div>
+    <div id="owner-badge" class="owner-badge hidden">
+      <span class="owner-avatar" id="owner-avatar"></span>
+      <div class="owner-info">
+        <span class="owner-label">Karte von</span>
+        <span id="owner-name" class="owner-name"></span>
+      </div>
+    </div>
+    <div id="map-loader" class="map-loader">
+      <div class="loader-inner">
+        <div class="loader-spinner"></div>
+        <span class="loader-text">Karte wird geladen…</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Landkreis-Dialog ── -->
+  <div id="region-dialog" class="dialog hidden" role="dialog" aria-modal="true" aria-labelledby="dialog-name">
+    <div class="dialog-inner">
+      <button class="dialog-close" id="dialog-close" aria-label="Schließen">✕</button>
+      <div class="dialog-header">
+        <div class="dialog-badge" id="dialog-badge"></div>
+        <div>
+          <h2 id="dialog-name"></h2>
+          <p id="dialog-sub" class="dialog-sub"></p>
+        </div>
+      </div>
+      <div class="dialog-status-row">
+        <span class="status-pill" id="status-pill">Nicht besucht</span>
+      </div>
+      <div id="visit-info" class="visit-info hidden">
+        <div class="info-row">
+          <span class="info-label">📅 Besucht am</span>
+          <span id="info-date" class="info-value">—</span>
+        </div>
+        <div class="info-row info-row--notes">
+          <span class="info-label">📝 Notizen</span>
+          <span id="info-notes" class="info-value">—</span>
+        </div>
+      </div>
+      <div id="visit-form" class="visit-form hidden">
+        <div class="form-group">
+          <label for="form-date">Besuchsdatum</label>
+          <input type="date" id="form-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="form-notes">Notizen</label>
+          <textarea id="form-notes" class="form-input form-textarea" placeholder="Cache-Namen, Erlebnisse…" rows="3"></textarea>
+        </div>
+        <div class="form-actions">
+          <button id="btn-toggle-visit" class="btn btn-primary"></button>
+          <button id="btn-save-visit" class="btn btn-secondary hidden">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Login-Dialog ── -->
+  <div id="login-dialog" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-inner">
+      <button class="dialog-close" id="login-close" aria-label="Schließen">✕</button>
+      <div class="dialog-header">
+        <div class="dialog-badge">◈</div>
+        <div>
+          <h2>Anmelden</h2>
+          <p class="dialog-sub">Erhalte einen Login-Link per E-Mail.</p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="login-email">E-Mail-Adresse</label>
+        <input type="email" id="login-email" class="form-input" placeholder="deine@email.de" autocomplete="email">
+      </div>
+      <div class="form-actions">
+        <button id="btn-send-magic" class="btn btn-primary">Link senden</button>
+      </div>
+      <p id="login-msg" class="login-msg hidden"></p>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop hidden"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

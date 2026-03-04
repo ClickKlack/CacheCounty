@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# ── API ───────────────────────────────────────────────────────────────────────
+# Route alle /api/* Anfragen an den PHP Front-Controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/public/index.php [QSA,L]
+
+# ── Frontend-Routen ───────────────────────────────────────────────────────────
+# /map/{username} → app/index.html (Username wird von app.js aus der URL gelesen)
+RewriteRule ^map/[^/]+/?$ app/index.html [L]
+
+# Root → app/index.html
+RewriteRule ^$ app/index.html [L]
