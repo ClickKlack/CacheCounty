@@ -2,7 +2,8 @@ name: CI / Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main]      # CI läuft automatisch bei jedem Push
+  workflow_dispatch:       # Deploy kann manuell über GitHub ausgelöst werden
 
 jobs:
   # ── 1. CI: PHP-Syntax prüfen ──────────────────────────────────
@@ -34,7 +35,8 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: lint   # nur deployen wenn lint erfolgreich
+    needs: lint
+    if: github.event_name == 'workflow_dispatch'   # nur bei manuellem Start
 
     steps:
       - uses: actions/checkout@v4
