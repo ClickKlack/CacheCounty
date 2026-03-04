@@ -52,20 +52,29 @@ jobs:
         working-directory: api
 
       - name: SSH-Key einrichten
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_KEY:  ${{ secrets.SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
 
       - name: Dateien via rsync übertragen
+        env:
+          SSH_HOST:    ${{ secrets.SSH_HOST }}
+          SSH_PORT:    ${{ secrets.SSH_PORT || '22' }}
+          SSH_USER:    ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT || 22 }}" \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='api/config/*.local.php' \
             --exclude='api/config/database.local.php' \
             --exclude='data/*.geojson' \
             --exclude='*.bak.*' \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
+            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
