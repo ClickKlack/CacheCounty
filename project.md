@@ -295,7 +295,7 @@ Pflichtfelder je Land:
 7. Frontend – Landkreis-Dialog (Bundesland-Anzeige, Visit-CRUD, Login-Dialog) (✅ erledigt)
 8. Admin-Bereich Backend (✅ erledigt) / Frontend (✅ erledigt)
 9. GeoJSON-Daten: DE (✅ erledigt) / AT (✅ erledigt)
-10. GeoJSON-Vereinfachung (⚠️ offen – DE aktuell 5,2 MB)
+10. GeoJSON-Vereinfachung (✅ erledigt – DE von 5,2 MB auf 1,1 MB reduziert)
 11. Testing & Deployment (❌ offen)
 
 ---
