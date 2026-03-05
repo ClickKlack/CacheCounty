@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
            <span class="auth-name">${escHtml(state.session.username)}</span>
          </div>` +
         (state.session.is_admin
-          ? `<a href="admin.html" class="btn btn-ghost" style="font-size:0.78rem">Admin</a>`
+          ? `<a href="admin.html" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Admin</a>`
           : '') +
         `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
       $('btn-logout')?.addEventListener('click', logout);
