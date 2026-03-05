@@ -20,6 +20,13 @@ jobs:
           php-version: '8.3'
           tools: composer
 
+      - name: Composer-Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+
       - name: Composer validieren
         run: composer validate --strict
         working-directory: api
@@ -31,11 +38,53 @@ jobs:
       - name: PHP-Syntax aller Dateien prüfen
         run: find api/src -name "*.php" | xargs -I{} php -l {}
 
-  # ── 2. Deploy via rsync + SSH ─────────────────────────────────
+  # ── 2. Tests ──────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.3 einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Composer-Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Abhängigkeiten installieren (inkl. Dev)
+        run: composer install --optimize-autoloader
+        working-directory: api
+
+      - name: PHPUnit ausführen
+        run: vendor/bin/phpunit
+        working-directory: api
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: npm-Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Vitest ausführen
+        run: npm test
+
+  # ── 3. Deploy via rsync + SSH ─────────────────────────────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, test]
     if: github.event_name == 'workflow_dispatch'   # nur bei manuellem Start
 
     steps:
@@ -46,6 +95,13 @@ jobs:
         with:
           php-version: '8.3'
           tools: composer
+
+      - name: Composer-Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
 
       - name: Composer (ohne Dev-Pakete)
         run: composer install --no-dev --optimize-autoloader

@@ -1,4 +1,6 @@
 api/vendor/
+api/.phpunit.result.cache
+node_modules/
 api/config/database.local.php
 api/config/app.local.php
 data/*.geojson
