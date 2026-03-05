@@ -33,6 +33,7 @@ class RegionController
             'code'                 => $c['code'],
             'label'                => $c['label'],
             'state_label'          => $c['state_label']          ?? null,
+            'state_label_plural'   => $c['state_label_plural']   ?? null,
             'geojson'              => $c['geojson']              ?? null,
             'region_name_property' => $c['region_name_property'] ?? null,
             'region_code_property' => $c['region_code_property'] ?? null,
@@ -67,7 +68,8 @@ class RegionController
             Response::notFound('User not found.');
         }
 
-        $sql    = 'SELECT country_code, region_code, region_name, visited_at, notes
+        $sql    = 'SELECT country_code, region_code, region_name, visited_at, notes,
+                          DATE(created_at) AS created_date
                      FROM visits
                     WHERE user_id = ?';
         $params = [$user['id']];

@@ -89,4 +89,29 @@ class RouterTest extends TestCase
 
         $this->assertSame('DE-09162', TestController::$capturedParams['code']);
     }
+
+    public function test_dispatch_extracts_username_from_stats_route(): void
+    {
+        $req    = $this->makeRequest('GET', '/api/stats/ClickKlack');
+        $router = new Router($req);
+        $router->get('/api/stats/{username}', [TestController::class, 'handle']);
+
+        $router->dispatch();
+
+        $this->assertSame('ClickKlack', TestController::$capturedParams['username']);
+    }
+
+    public function test_dispatch_matches_leaderboard_before_stats_username(): void
+    {
+        // Leaderboard route must win over {username} wildcard when registered first
+        $req    = $this->makeRequest('GET', '/api/leaderboard');
+        $router = new Router($req);
+        $router->get('/api/leaderboard',       [TestController::class, 'handle']);
+        $router->get('/api/stats/{username}',  [TestController::class, 'handle']);
+
+        $router->dispatch();
+
+        // The leaderboard route has no {username} segment – param must be null
+        $this->assertNull(TestController::$capturedParams['username']);
+    }
 }

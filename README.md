@@ -2,7 +2,7 @@
 
 ## Voraussetzungen
 
-- PHP 8.0+
+- PHP 8.3+
 - MariaDB 10.4+
 - Composer
 - Shared Hosting mit mod_rewrite
@@ -78,6 +78,7 @@ cachecounty/
 │       ├── Admin/AdminController.php
 │       ├── Auth/AuthController.php
 │       ├── Region/RegionController.php
+│       ├── Stats/StatsController.php
 │       └── Shared/
 │           ├── Database.php
 │           ├── Guard.php
@@ -85,9 +86,18 @@ cachecounty/
 │           ├── Response.php
 │           └── Router.php
 ├── app/                         ← Frontend (Leaflet.js, Vanilla JS)
+│   ├── index.html               ← Kartenansicht (/map/{username})
+│   ├── stats.html               ← Statistikseite (/stats/{username})
+│   ├── admin.html               ← Admin-Bereich (/admin)
+│   ├── css/app.css
+│   └── js/
+│       ├── api.js               ← API-Wrapper
+│       ├── app.js               ← Kartenlogik
+│       └── stats.js             ← Statistiklogik
 ├── config/
 │   └── countries.json           ← Länderkonfiguration
-└── data/                        ← GeoJSON-Dateien (nicht versioniert)
+├── data/                        ← GeoJSON-Dateien (nicht versioniert)
+└── router.php                   ← Dev-Server-Router (php -S localhost:8080 router.php)
 ```
 
 ---
@@ -111,5 +121,7 @@ cachecounty/
 | DELETE | /api/admin/users/{id}             | Admin   |
 | GET    | /api/admin/sessions               | Admin   |
 | DELETE | /api/admin/sessions/{token}       | Admin   |
+| GET    | /api/stats/{username}             | –       |
+| GET    | /api/leaderboard                  | –       |
 
 Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`.

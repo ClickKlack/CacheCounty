@@ -159,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderAuthArea() {
+    const statsUser = state.pageUser || state.session?.username;
+    const statsHref = statsUser ? '/stats/' + encodeURIComponent(statsUser) : null;
     if (state.session) {
       els.authArea.innerHTML =
         `<div class="auth-user">
@@ -168,10 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
         (state.session.is_admin
           ? `<a href="admin.html" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Admin</a>`
           : '') +
+        (statsHref
+          ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
+          : '') +
         `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
       $('btn-logout')?.addEventListener('click', logout);
     } else {
       els.authArea.innerHTML =
+        (statsHref
+          ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
+          : '') +
         `<button id="btn-login" class="btn btn-ghost">Anmelden</button>`;
       $('btn-login')?.addEventListener('click', () => openDialog('login'));
     }

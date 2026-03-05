@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de" class="stats-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/app/">
+  <title>CacheCounty – Statistiken</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="stats-page">
+
+  <header id="app-header">
+    <div class="header-inner">
+      <a href="/" class="logo" style="text-decoration:none;">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Cache<em>County</em></span>
+      </a>
+      <div class="header-center">
+        <select id="country-select" class="country-select" aria-label="Land auswählen"></select>
+      </div>
+      <div class="header-right">
+        <div id="auth-area">
+          <button id="btn-login" class="btn btn-ghost">Anmelden</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="stats-main">
+
+    <!-- Seitenheader mit Nutzerinformation -->
+    <div class="stats-hero">
+      <div class="stats-hero-inner">
+        <div class="stats-hero-avatar" id="hero-avatar"></div>
+        <div>
+          <h1 class="stats-hero-title" id="hero-title">Statistiken</h1>
+          <p class="stats-hero-sub" id="hero-sub"></p>
+        </div>
+        <a id="hero-map-link" href="#" class="btn btn-ghost btn-sm" style="text-decoration:none">← Zur Karte</a>
+      </div>
+    </div>
+
+    <!-- Sektion 1: Ländervergleich -->
+    <section class="stats-section" id="section-countries">
+      <h2 class="stats-section-title">Ländervergleich</h2>
+      <div id="countries-list" class="countries-list"></div>
+    </section>
+
+    <!-- Sektion 2: Zeitverlauf -->
+    <section class="stats-section" id="section-timeline">
+      <h2 class="stats-section-title">Zeitlicher Verlauf</h2>
+      <div class="chart-wrap">
+        <canvas id="timeline-chart"></canvas>
+      </div>
+      <p class="chart-hint" id="timeline-hint"></p>
+    </section>
+
+    <!-- Sektion 3: Fortschritt je Bundesland -->
+    <section class="stats-section" id="section-states">
+      <h2 class="stats-section-title">Fortschritt je <span id="state-label-heading">Bundesland</span> – <span id="states-country-label"></span></h2>
+      <div id="states-list" class="states-progress-list"></div>
+    </section>
+
+    <!-- Sektion 4: Meilensteine -->
+    <section class="stats-section" id="section-milestones">
+      <h2 class="stats-section-title">Meilensteine – <span id="milestones-country-label"></span></h2>
+      <div id="milestones-grid" class="milestone-grid"></div>
+    </section>
+
+    <!-- Sektion 5: Rangliste -->
+    <section class="stats-section" id="section-leaderboard">
+      <h2 class="stats-section-title">Rangliste</h2>
+      <div class="leaderboard-tabs">
+        <button class="lb-tab active">Gesamt</button>
+      </div>
+      <div id="leaderboard-wrap">
+        <table class="leaderboard-table" id="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nutzer</th>
+              <th>Besucht</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Login-Dialog -->
+  <div class="backdrop hidden" id="backdrop"></div>
+  <div class="dialog hidden" id="login-dialog" role="dialog" aria-modal="true">
+    <div class="dialog-inner">
+      <button class="dialog-close" id="login-close" aria-label="Schließen">✕</button>
+      <div class="dialog-header">
+        <div class="dialog-badge">✉</div>
+        <div>
+          <h2>Anmelden</h2>
+          <p class="dialog-sub">Magic Link per E-Mail</p>
+        </div>
+      </div>
+      <div class="visit-form" id="login-form">
+        <div class="form-group">
+          <label for="login-email">E-Mail-Adresse</label>
+          <input type="email" id="login-email" class="form-input" placeholder="du@beispiel.de" autocomplete="email">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-send-link">Link senden</button>
+        </div>
+        <p id="login-msg" class="login-msg" style="display:none;"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/stats.js"></script>
+</body>
+</html>

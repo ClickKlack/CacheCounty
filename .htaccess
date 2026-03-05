@@ -10,5 +10,8 @@ RewriteRule ^api/(.*)$ api/public/index.php [QSA,L]
 # /map/{username} → app/index.html (Username wird von app.js aus der URL gelesen)
 RewriteRule ^map/[^/]+/?$ app/index.html [L]
 
+# /stats/{username} → app/stats.html
+RewriteRule ^stats/[^/]+/?$ app/stats.html [L]
+
 # Root → app/index.html
 RewriteRule ^$ app/index.html [L]

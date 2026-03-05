@@ -112,6 +112,49 @@ describe('Api.getMap', () => {
   })
 })
 
+// ── Stats ─────────────────────────────────────────────────────────────────
+
+describe('Api.getStats', () => {
+  it('sends GET to /api/stats/{username}', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.getStats('ClickKlack')
+    const { url, opts } = lastCall(fetchMock)
+    expect(url).toBe('/api/stats/ClickKlack')
+    expect(opts.method).toBe('GET')
+  })
+
+  it('URL-encodes special characters in username', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.getStats('Max Mustermann')
+    const { url } = lastCall(fetchMock)
+    expect(url).toContain('Max%20Mustermann')
+  })
+})
+
+describe('Api.getLeaderboard', () => {
+  it('sends GET to /api/leaderboard without query string when no country given', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.getLeaderboard(null)
+    const { url, opts } = lastCall(fetchMock)
+    expect(url).toBe('/api/leaderboard')
+    expect(opts.method).toBe('GET')
+  })
+
+  it('appends ?country=DE when country is provided', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.getLeaderboard('DE')
+    const { url } = lastCall(fetchMock)
+    expect(url).toBe('/api/leaderboard?country=DE')
+  })
+
+  it('URL-encodes the country code', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.getLeaderboard('Ö+X')
+    const { url } = lastCall(fetchMock)
+    expect(url).toContain('%C3%96%2BX')
+  })
+})
+
 // ── Visits ────────────────────────────────────────────────────────────────
 
 describe('Api.addVisit', () => {

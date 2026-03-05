@@ -5,6 +5,7 @@ api/config/database.local.php
 api/config/app.local.php
 data/*.geojson
 .env
+router.php
 
 # macOS
 .DS_Store

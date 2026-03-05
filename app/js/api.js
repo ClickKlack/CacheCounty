@@ -61,5 +61,12 @@ const Api = (() => {
     // ── Admin – Sessions ───────────────────────────────────
     listSessions:   ()            => request('GET',    '/admin/sessions'),
     deleteSession:  (token)       => request('DELETE', '/admin/sessions/' + encodeURIComponent(token)),
+
+    // ── Stats ─────────────────────────────────────────────
+    getStats:       (username)    => request('GET', '/stats/' + encodeURIComponent(username)),
+    getLeaderboard: (country)     => {
+      const qs = country ? '?country=' + encodeURIComponent(country) : '';
+      return request('GET', '/leaderboard' + qs);
+    },
   };
 })();

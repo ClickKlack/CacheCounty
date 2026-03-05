@@ -4,10 +4,15 @@ declare(strict_types=1);
 use CacheCounty\Auth\AuthController;
 use CacheCounty\Region\RegionController;
 use CacheCounty\Admin\AdminController;
+use CacheCounty\Stats\StatsController;
 
 // --- Public ---
 $router->get('/api/countries',               [RegionController::class, 'countries']);
 $router->get('/api/map/{username}',          [RegionController::class, 'mapByUser']);
+
+// --- Stats (leaderboard vor {username} definieren, damit es nicht als Username gilt) ---
+$router->get('/api/leaderboard',             [StatsController::class, 'leaderboard']);
+$router->get('/api/stats/{username}',        [StatsController::class, 'userStats']);
 
 // --- Auth ---
 $router->post('/api/auth/magic-link',        [AuthController::class, 'requestMagicLink']);

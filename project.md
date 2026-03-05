@@ -6,7 +6,7 @@
 
 ## 1. Projektziel
 
-CacheCounty ermöglicht Geocachern, besuchte Landkreise Deutschlands und weiterer konfigurierbarer Länder auf einer interaktiven Karte zu visualisieren. Jeder Nutzer verfügt über eine öffentlich einsehbare, persönliche Kartenansicht. Die Verwaltung besuchter Regionen ist nach Authentifizierung möglich.
+CacheCounty ermöglicht Geocachern, besuchte Landkreise Deutschlands und weiterer konfigurierbarer Länder auf einer interaktiven Karte zu visualisieren. Jeder Nutzer verfügt über eine öffentlich einsehbare, persönliche Kartenansicht sowie eine Statistikseite mit Fortschrittsauswertung und globaler Rangliste. Die Verwaltung besuchter Regionen ist nach Authentifizierung möglich.
 
 ---
 
@@ -15,7 +15,7 @@ CacheCounty ermöglicht Geocachern, besuchte Landkreise Deutschlands und weitere
 | Schicht        | Technologie                                      |
 |----------------|--------------------------------------------------|
 | Hosting        | Klassisches Shared Hosting                       |
-| Backend / API  | PHP 8+                                           |
+| Backend / API  | PHP 8.3+                                         |
 | Datenbank      | MariaDB 10.4+                                    |
 | Frontend       | Vanilla JS + Leaflet.js                          |
 | Kartenmaterial | OpenStreetMap (Tile-Layer, kein API-Key)         |
@@ -49,7 +49,7 @@ Strikte Trennung von Frontend und Backend über eine REST-API.
 |--------------------|-------------------------------------------------|
 | Anlage             | Ausschließlich durch einen Admin                |
 | Self-Service       | Nicht vorgesehen                                |
-| URL-Schema         | `https://domain.tld/map/{username}`             |
+| URL-Schema         | `https://domain.tld/map/{username}` · `https://domain.tld/stats/{username}` |
 | Authentifizierung  | Magic Link per E-Mail (kein Passwort)           |
 | Rollen             | `admin`, `user`                                 |
 
@@ -123,7 +123,23 @@ Ein Klick auf einen sichtbaren (eingeblendeten) Landkreis öffnet ein Dialogfeld
 
 ---
 
-### 5.4 Admin-Bereich (`/admin`)
+### 5.4 Statistikseite (`/stats/{username}`)
+
+Öffentlich einsehbare Statistikseite je Nutzer, erreichbar über den Header-Link auf der Karte.
+
+| Sektion               | Inhalt                                                                                   |
+|-----------------------|------------------------------------------------------------------------------------------|
+| Ländervergleich       | Fortschrittsbalken je konfiguriertem Land (besucht / gesamt / Prozent)                  |
+| Zeitlicher Verlauf    | Kumuliertes Flächendiagramm (Chart.js) pro Land, Fallback auf `created_at` wenn kein `visited_at` gesetzt |
+| Fortschritt je Bundesland | Fortschrittsbalken je Bundesland, sortiert nach relativer Fundrate absteigend       |
+| Meilensteine          | Karten für Erster Besuch, 10 %, 25 %, 50 %, 75 %, 100 %, Alle Bundesländer – jeweils mit Erreichungsdatum |
+| Rangliste             | Tab „Gesamt" + ein Tab je konfiguriertem Land; Top-50 mit Rangzahl und Tiebreaker-Logik |
+
+Die Bundesland-Zuordnung und Meilensteinberechnung erfolgt clientseitig aus dem GeoJSON (kein separater API-Endpunkt nötig).
+
+---
+
+### 5.5 Admin-Bereich (`/admin`)
 
 - Login per Magic Link (separate Admin-E-Mail)
 - User anlegen (Username + E-Mail)
@@ -140,13 +156,15 @@ Authentifizierung über Session-Cookie oder `Authorization`-Header.
 
 ### Öffentliche Endpunkte
 
-| Method | Endpunkt                    | Beschreibung                          |
-|--------|-----------------------------|---------------------------------------|
-| GET    | `/api/map/{username}`       | Besuchte Regionen des Users           |
-| GET    | `/api/countries`            | Liste konfigurierter Länder           |
-| POST   | `/api/auth/magic-link`      | Magic Link anfordern                  |
-| GET    | `/api/auth/verify`          | Token einlösen (`?token=…`)           |
-| POST   | `/api/auth/logout`          | Session beenden                       |
+| Method | Endpunkt                    | Beschreibung                                        |
+|--------|-----------------------------|-----------------------------------------------------|
+| GET    | `/api/map/{username}`       | Besuchte Regionen des Users                         |
+| GET    | `/api/countries`            | Liste konfigurierter Länder                         |
+| GET    | `/api/stats/{username}`     | Aggregierte Statistiken (Timeline, Meilensteine …)  |
+| GET    | `/api/leaderboard`          | Rangliste, optional `?country=DE`                   |
+| POST   | `/api/auth/magic-link`      | Magic Link anfordern                                |
+| GET    | `/api/auth/verify`          | Token einlösen (`?token=…`)                         |
+| POST   | `/api/auth/logout`          | Session beenden                                     |
 
 ### Authentifizierte Endpunkte (User)
 
@@ -160,12 +178,14 @@ Authentifizierung über Session-Cookie oder `Authorization`-Header.
 
 ### Admin-Endpunkte
 
-| Method | Endpunkt                    | Beschreibung            |
-|--------|-----------------------------|-------------------------|
-| GET    | `/api/admin/users`          | Alle User auflisten     |
-| POST   | `/api/admin/users`          | User anlegen            |
-| PATCH  | `/api/admin/users/{id}`     | User aktivieren/deaktiv.|
-| DELETE | `/api/admin/users/{id}`     | User löschen            |
+| Method | Endpunkt                        | Beschreibung            |
+|--------|---------------------------------|-------------------------|
+| GET    | `/api/admin/users`              | Alle User auflisten     |
+| POST   | `/api/admin/users`              | User anlegen            |
+| PATCH  | `/api/admin/users/{id}`         | User aktivieren/deaktiv.|
+| DELETE | `/api/admin/users/{id}`         | User löschen            |
+| GET    | `/api/admin/sessions`           | Aktive Sessions         |
+| DELETE | `/api/admin/sessions/{token}`   | Session beenden         |
 
 ---
 
@@ -235,37 +255,29 @@ Datei: `/config/countries.json`
     "code": "DE",
     "label": "Deutschland",
     "state_label": "Bundesland",
+    "state_label_plural": "Bundesländer",
     "geojson": "data/de_landkreise.geojson",
     "region_name_property": "GEN",
     "region_code_property": "AGS",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
-  },
-  {
-    "code": "AT",
-    "label": "Österreich",
-    "state_label": "Bundesland",
-    "geojson": "data/at_bezirke.geojson",
-    "region_name_property": "name",
-    "region_code_property": "iso",
-    "state_name_property": "state_name",
-    "state_code_property": "state_id"
   }
 ]
 ```
 
-Pflichtfelder je Land:
+Felder je Land:
 
-| Feld                   | Beschreibung                                                  |
-|------------------------|---------------------------------------------------------------|
-| `code`                 | ISO 3166-1 Alpha-2                                            |
-| `label`                | Anzeigename in der Länder-Selectbox                          |
-| `state_label`          | Bezeichnung der übergeordneten Einheit im UI                 |
-| `geojson`              | Pfad zur GeoJSON-Datei relativ zu `/data/`                   |
-| `region_name_property` | GeoJSON-Property für den Landkreisnamen                      |
-| `region_code_property` | GeoJSON-Property für den Landkreis-Code (eindeutig)          |
-| `state_name_property`  | GeoJSON-Property für den Bundesland-Namen                    |
-| `state_code_property`  | GeoJSON-Property für den Bundesland-Code (Gruppierungsschlüssel) |
+| Feld                   | Pflicht | Beschreibung                                                      |
+|------------------------|---------|-------------------------------------------------------------------|
+| `code`                 | ✅      | ISO 3166-1 Alpha-2                                                |
+| `label`                | ✅      | Anzeigename in der Länder-Selectbox                               |
+| `state_label`          | ✅      | Singular-Bezeichnung der übergeordneten Einheit (z. B. „Bundesland") |
+| `state_label_plural`   | –       | Plural-Form (z. B. „Bundesländer") – wird für Meilenstein-Texte verwendet |
+| `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Projektstamm                   |
+| `region_name_property` | ✅      | GeoJSON-Property für den Landkreisnamen                           |
+| `region_code_property` | ✅      | GeoJSON-Property für den Landkreis-Code (eindeutig)               |
+| `state_name_property`  | ✅      | GeoJSON-Property für den Bundesland-Namen                         |
+| `state_code_property`  | ✅      | GeoJSON-Property für den Bundesland-Code (Gruppierungsschlüssel)  |
 
 ---
 
@@ -296,7 +308,8 @@ Pflichtfelder je Land:
 8. Admin-Bereich Backend (✅ erledigt) / Frontend (✅ erledigt)
 9. GeoJSON-Daten: DE (✅ erledigt) / AT (✅ erledigt)
 10. GeoJSON-Vereinfachung (✅ erledigt – DE von 5,2 MB auf 1,1 MB reduziert)
-11. Testing & Deployment (❌ offen)
+11. Statistikseite `/stats/{username}` mit Rangliste (✅ erledigt)
+12. Testing & Deployment (❌ offen)
 
 ---
 

@@ -214,3 +214,82 @@ body.admin-page { overflow: auto; height: auto; }
   .admin-main { padding: 20px 12px 40px; }
   .col-email, .col-date { display: none; }
 }
+
+/* ── Stats page ──────────────────────────────────────────────── */
+html.stats-page,
+body.stats-page { overflow: auto; height: auto; }
+.btn-sm { font-size: 0.78rem; padding: 6px 14px; }
+
+#stats-main { margin-top: var(--header-h); background: var(--parchment); min-height: calc(100vh - var(--header-h)); padding-bottom: 60px; }
+
+/* Hero */
+.stats-hero { background: var(--bark); color: var(--cream); padding: 28px 20px; }
+.stats-hero-inner { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 16px; }
+.stats-hero-avatar { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: var(--moss); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--cream); }
+.stats-hero-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--cream); line-height: 1.1; }
+.stats-hero-sub { font-size: 0.8rem; color: rgba(245,240,232,0.55); margin-top: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+.stats-hero-inner .btn-ghost { margin-left: auto; flex-shrink: 0; }
+
+/* Sections */
+.stats-section { max-width: 860px; margin: 0 auto; padding: 36px 20px 0; }
+.stats-section-title { font-family: var(--font-display); font-size: 1.25rem; color: var(--bark); margin-bottom: 20px; }
+.stats-empty { color: var(--bark-light); font-size: 0.88rem; font-style: italic; padding: 12px 0; }
+.stats-error { max-width: 480px; margin: 60px auto; text-align: center; display: flex; flex-direction: column; gap: 20px; color: var(--bark); }
+
+/* Ländervergleich */
+.countries-list { display: flex; flex-direction: column; gap: 14px; }
+.country-progress-item { background: var(--cream); border-radius: 10px; padding: 16px 18px; box-shadow: 0 2px 8px rgba(30,26,19,0.08); }
+.country-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; gap: 12px; }
+.country-progress-name { font-family: var(--font-display); font-size: 1rem; color: var(--bark); font-weight: 600; }
+.country-progress-count { font-size: 0.8rem; color: var(--bark-light); font-weight: 500; white-space: nowrap; }
+.country-progress-bar-wrap { display: flex; align-items: center; }
+.country-progress-bar { flex: 1; height: 8px; background: var(--parchment); border-radius: 99px; overflow: hidden; }
+.country-progress-fill { height: 100%; background: var(--moss-light); border-radius: 99px; transition: width 0.8s var(--ease-out); }
+
+/* Zeitverlauf */
+.chart-wrap { background: var(--cream); border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(30,26,19,0.08); }
+.chart-hint { font-size: 0.75rem; color: var(--bark-light); margin-top: 10px; font-style: italic; }
+
+/* Bundesland-Fortschritt */
+.states-progress-list { display: flex; flex-direction: column; gap: 0; background: var(--cream); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(30,26,19,0.08); }
+.state-progress-item { padding: 12px 16px; border-bottom: 1px solid var(--parchment); }
+.state-progress-item:last-child { border-bottom: none; }
+.state-progress-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; gap: 8px; }
+.state-progress-name { font-size: 0.88rem; font-weight: 500; color: var(--bark); }
+.state-progress-count { font-size: 0.75rem; color: var(--bark-light); white-space: nowrap; }
+.state-progress-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.state-progress-bar { flex: 1; height: 5px; background: var(--parchment); border-radius: 99px; overflow: hidden; }
+.state-progress-fill { height: 100%; background: var(--moss-light); border-radius: 99px; transition: width 0.6s var(--ease-out); }
+.state-progress-pct { font-size: 0.7rem; color: var(--bark-light); min-width: 36px; text-align: right; }
+
+/* Meilensteine */
+.milestone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.milestone-card { background: var(--cream); border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(30,26,19,0.08); display: flex; flex-direction: column; gap: 6px; border: 2px solid transparent; transition: border-color 0.3s; }
+.milestone-card.milestone-reached { border-color: var(--moss-pale); }
+.milestone-icon { font-size: 1.2rem; }
+.milestone-title { font-family: var(--font-display); font-size: 1rem; color: var(--bark); font-weight: 600; }
+.milestone-label { font-size: 0.78rem; font-weight: 500; color: var(--bark-light); }
+.milestone-value { font-family: var(--font-display); font-size: 0.95rem; color: var(--bark); }
+.milestone-card.milestone-reached .milestone-value { color: var(--moss); }
+.milestone-card.milestone-reached .milestone-icon { color: var(--moss); }
+
+/* Rangliste */
+.leaderboard-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.lb-tab { font-family: var(--font-body); font-size: 0.82rem; font-weight: 500; padding: 6px 16px; border-radius: 99px; border: 1.5px solid #d4c9b2; background: transparent; color: var(--bark-light); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.lb-tab.active, .lb-tab:hover { background: var(--bark); color: var(--cream); border-color: var(--bark); }
+.leaderboard-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--cream); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(30,26,19,0.08); }
+.leaderboard-table th { text-align: left; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bark-light); padding: 12px 16px; border-bottom: 1.5px solid var(--parchment); }
+.leaderboard-table td { padding: 10px 16px; border-bottom: 1px solid var(--parchment); color: var(--bark); }
+.leaderboard-table tbody tr:last-child td { border-bottom: none; }
+.leaderboard-table tbody tr:hover { background: #faf7f2; }
+.leaderboard-table tbody tr.lb-self { background: var(--moss-pale); }
+.lb-rank { font-weight: 600; color: var(--bark-mid); width: 48px; }
+.lb-user a { color: var(--bark); text-decoration: none; font-weight: 500; }
+.lb-user a:hover { color: var(--moss); text-decoration: underline; }
+.lb-count { font-weight: 600; color: var(--moss); text-align: right; }
+
+@media (max-width: 599px) {
+  .stats-hero-inner { flex-wrap: wrap; }
+  .stats-hero-inner .btn-ghost { margin-left: 0; }
+  .milestone-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
