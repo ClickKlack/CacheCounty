@@ -55,7 +55,7 @@ const CacheMap = (() => {
       zoomControl:        true,
       attributionControl: true,
       minZoom: 5,
-      maxZoom: 12,
+      maxZoom: 19,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -64,6 +64,32 @@ const CacheMap = (() => {
     }).addTo(map);
 
     map.setView([51.3, 10.4], 6);
+
+    // Geocaching.com button below zoom controls
+    const GcControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd() {
+        const btn = L.DomUtil.create('a', 'leaflet-bar leaflet-control geocaching-btn');
+        btn.href        = '#';
+        btn.title       = 'Auf Geocaching.com ansehen';
+        btn.target      = '_blank';
+        btn.rel         = 'noopener';
+        btn.innerHTML   = '<img src="https://www.geocaching.com/favicon.ico" width="19" height="19" alt="GC" style="display:block;margin:auto;">';
+        btn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:background 0.15s,transform 0.1s;';
+        L.DomEvent.on(btn, 'mouseover', () => { btn.style.background = '#f4f4f4'; btn.style.transform = 'scale(1.12)'; });
+        L.DomEvent.on(btn, 'mouseout',  () => { btn.style.background = '';        btn.style.transform = ''; });
+        L.DomEvent.on(btn, 'click', function (e) {
+          L.DomEvent.preventDefault(e);
+          const c   = map.getCenter();
+          const lat = c.lat.toFixed(5);
+          const lng = c.lng.toFixed(5);
+          const z   = map.getZoom();
+          window.open(`https://www.geocaching.com/map/#?ll=${lat},${lng}&z=${z}`, '_blank', 'noopener');
+        });
+        return btn;
+      },
+    });
+    new GcControl().addTo(map);
   }
 
   // ── Load GeoJSON ──────────────────────────────────────────────
