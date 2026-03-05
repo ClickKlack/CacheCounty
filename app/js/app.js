@@ -512,6 +512,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAuthArea();
     renderOwnerBadge();
     CacheMap.init('map');
+    fetch('version.json').then(r => r.ok ? r.json() : null).then(v => {
+      if (!v) return;
+      const el = document.querySelector('.leaflet-control-attribution');
+      if (el) el.insertAdjacentHTML('beforeend', ` · Build&nbsp;<span title="${v.built}">${v.commit}</span>`);
+    }).catch(() => {});
     await loadCountries();
   }
 
