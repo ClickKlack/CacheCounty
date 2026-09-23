@@ -23,8 +23,16 @@ const Api = (() => {
 
     if (body !== null) opts.body = JSON.stringify(body);
 
-    const res  = await fetch(API_BASE + path, opts);
-    const data = await res.json();
+    const res = await fetch(API_BASE + path, opts);
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (_) {
+      // Keine JSON-Antwort – meist eine HTML-Fehlerseite, etwa wenn der
+      // PHP-Server hinter dem Dev-Proxy nicht läuft oder mod_rewrite fehlt.
+      throw new Error(`Die API hat kein JSON geliefert (HTTP ${res.status}). Läuft der PHP-Server?`);
+    }
 
     if (!res.ok) {
       throw new Error(data.error || 'Unbekannter Fehler');

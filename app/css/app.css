@@ -76,6 +76,11 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font-body); back
 .state-item-bar { flex: 1; height: 4px; background: var(--parchment); border-radius: 99px; overflow: hidden; }
 .state-item-bar-fill { height: 100%; background: var(--moss-light); border-radius: 99px; transition: width 0.5s var(--ease-out); }
 .state-item-count { font-size: 0.7rem; color: var(--bark-light); white-space: nowrap; font-weight: 500; min-width: 38px; text-align: right; }
+.state-item-dl-group { display: flex; gap: 3px; flex-shrink: 0; }
+.state-item-dl { width: 20px; height: 20px; border: none; border-radius: 6px; cursor: pointer; background: transparent; color: var(--bark-light); font-size: 13px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+.state-item-dl:hover { background: var(--bark); color: var(--cream); }
+.state-item-dl--missing { color: var(--rust); }
+.state-item-dl--missing:hover { background: var(--rust); color: #fff; }
 @media (max-width: 599px) {
   .state-panel { top: auto; bottom: 0; right: 0; left: 0; flex-direction: column-reverse; align-items: stretch; }
   .state-panel-toggle { width: 100%; border-radius: 10px 10px 0 0; align-self: auto; padding: 10px 16px; justify-content: center; gap: 8px; min-height: 40px; }

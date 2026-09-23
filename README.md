@@ -92,8 +92,11 @@ cachecounty/
 │   ├── css/app.css
 │   └── js/
 │       ├── api.js               ← API-Wrapper
+│       ├── map.js               ← Leaflet-Karte & GeoJSON-Layer
+│       ├── export.js            ← GeoJSON-Export für c:geo
 │       ├── app.js               ← Kartenlogik
-│       └── stats.js             ← Statistiklogik
+│       ├── stats.js             ← Statistiklogik
+│       └── admin.js             ← Admin-Logik
 ├── config/
 │   └── countries.json           ← Länderkonfiguration
 ├── data/                        ← GeoJSON-Dateien (nicht versioniert)

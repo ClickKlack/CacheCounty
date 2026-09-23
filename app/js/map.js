@@ -275,8 +275,24 @@ const CacheMap = (() => {
     });
   }
 
+  // ── Feature-Zugriff (für den GeoJSON-Export) ──────────────────
+
+  /**
+   * Liefert die Original-Features des aktuell geladenen Landes.
+   * Leaflet hält in layer.feature eine Referenz auf das geparste Feature,
+   * inklusive unveränderter Geometrie. Ausgeblendete Bundesländer sind
+   * ebenfalls enthalten – setStateVisibility ändert nur das Styling.
+   */
+  function getFeatures() {
+    const out = [];
+    geoLayer?.eachLayer(layer => {
+      if (layer.feature) out.push(layer.feature);
+    });
+    return out;
+  }
+
   // ── Public ────────────────────────────────────────────────────
 
-  return { init, loadGeoJSON, setStateVisibility, markVisited };
+  return { init, loadGeoJSON, setStateVisibility, markVisited, getFeatures };
 
 })();
