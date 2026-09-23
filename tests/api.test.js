@@ -14,10 +14,13 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const apiSource = readFileSync(resolve(__dirname, '../app/js/api.js'), 'utf-8')
 
-function buildApi({ token = null, ok = true, responseBody = { data: { ok: true } } } = {}) {
+function buildApi({ token = null, ok = true, status = 200, responseBody = { data: { ok: true } }, jsonThrows = false } = {}) {
   const fetchMock = vi.fn().mockResolvedValue({
     ok,
-    json: () => Promise.resolve(responseBody),
+    status,
+    json: () => jsonThrows
+      ? Promise.reject(new SyntaxError('Unexpected token < in JSON at position 0'))
+      : Promise.resolve(responseBody),
   })
 
   const sessionStorageMock = {
@@ -255,5 +258,17 @@ describe('Error handling', () => {
       responseBody: {},
     })
     await expect(Api.me()).rejects.toThrow('Unbekannter Fehler')
+  })
+
+  // Tritt auf, wenn hinter dem Dev-Proxy kein PHP-Server läuft und
+  // stattdessen eine HTML-Fehlerseite zurückkommt.
+  it('gives an actionable message when the response is not JSON', async () => {
+    const { Api } = buildApi({ ok: false, status: 502, jsonThrows: true })
+    await expect(Api.me()).rejects.toThrow('Die API hat kein JSON geliefert (HTTP 502)')
+  })
+
+  it('does not leak the raw SyntaxError on a non-JSON response', async () => {
+    const { Api } = buildApi({ ok: true, status: 200, jsonThrows: true })
+    await expect(Api.me()).rejects.toThrow(/Läuft der PHP-Server\?/)
   })
 })

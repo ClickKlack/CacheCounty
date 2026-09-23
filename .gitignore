@@ -7,6 +7,10 @@ data/*.geojson
 .env
 router.php
 
+# Lokale Dev-Umgebung (scripts/dev.sh) – Vorlage dev.config.example.sh ist versioniert
+scripts/dev.config.sh
+scripts/.run/
+
 # macOS
 .DS_Store
 .AppleDouble
