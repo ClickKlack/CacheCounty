@@ -133,6 +133,9 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='scripts/' \
+            --exclude='tests/' \
+            --exclude='node_modules/' \
             --exclude='api/config/*.local.php' \
             --exclude='api/config/database.local.php' \
             --exclude='data/*.geojson' \
