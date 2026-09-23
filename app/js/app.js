@@ -191,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.session = null;
     renderAuthArea();
     renderOwnerBadge();
+    renderStatePanel();   // entfernt die Download-Buttons des Besitzers
     closeDialog();
   }
 
@@ -250,16 +251,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
+    const owner = isOwner();
+
     els.stateList.innerHTML = entries.map(st => {
       const visited  = visitedByState[st.code] || 0;
+      const missing  = st.total - visited;
       const pct      = st.total > 0 ? Math.round((visited / st.total) * 100) : 0;
       const checked  = !state.hiddenStates.has(st.code);
       const dimmed   = !checked ? 'dimmed' : '';
+      const name     = escHtml(st.name);
+      const code     = escHtml(st.code);
+
+      // Downloads nur für den eingeloggten Besitzer
+      const downloads = owner
+        ? `<span class="state-item-dl-group">
+             <button class="state-item-dl" data-dl-state="${code}" data-dl-mode="all"
+                     title="Alle ${st.total} Landkreise – gefundene grün, fehlende rot"
+                     aria-label="Alle Landkreise von ${name} als GeoJSON herunterladen">&#10515;</button>` +
+          (missing > 0
+            ? `<button class="state-item-dl state-item-dl--missing" data-dl-state="${code}" data-dl-mode="missing"
+                     title="Nur die ${missing} fehlenden Landkreise"
+                     aria-label="Fehlende Landkreise von ${name} als GeoJSON herunterladen">&#10515;</button>`
+            : '') +
+          `</span>`
+        : '';
+
       return `
-        <li class="state-item ${dimmed}" data-state-code="${escHtml(st.code)}">
+        <li class="state-item ${dimmed}" data-state-code="${code}">
           <div class="state-checkbox ${checked ? 'checked' : ''}"></div>
           <div class="state-item-info">
-            <div class="state-item-name">${escHtml(st.name)}</div>
+            <div class="state-item-name">${name}</div>
             <div class="state-item-bar-wrap">
               <div class="state-item-bar">
                 <div class="state-item-bar-fill" style="width:${pct}%"></div>
@@ -267,13 +288,69 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="state-item-count">${visited}&thinsp;/&thinsp;${st.total}</span>
             </div>
           </div>
+          ${downloads}
         </li>`;
     }).join('');
 
-    // Click handler per item
+    // Click handler per item – Download-Buttons dürfen nicht durchschlagen
     els.stateList.querySelectorAll('.state-item').forEach(item => {
-      item.addEventListener('click', () => toggleState(item.dataset.stateCode));
+      item.addEventListener('click', e => {
+        if (e.target.closest('.state-item-dl')) return;
+        toggleState(item.dataset.stateCode);
+      });
     });
+
+    els.stateList.querySelectorAll('.state-item-dl').forEach(btn => {
+      btn.addEventListener('click', () =>
+        downloadStateGeoJSON(btn.dataset.dlState, btn.dataset.dlMode));
+    });
+  }
+
+  // ── GeoJSON-Export ────────────────────────────────────────────
+
+  /**
+   * Lädt die Landkreise eines Bundeslandes als GeoJSON herunter.
+   * mode: 'all' (alle, farbcodiert) | 'missing' (nur nicht besuchte)
+   */
+  function downloadStateGeoJSON(stateCode, mode) {
+    const country = state.currentCountry;
+    const st      = state.stateMap[stateCode];
+
+    if (!country || !st) {
+      showToast('Bundesland nicht gefunden.', 'error');
+      return;
+    }
+
+    try {
+      const visitsByRegionCode = new Map(
+        state.visits
+          .filter(v => v.country_code === country.code)
+          .map(v => [String(v.region_code), v])
+      );
+
+      const fc = CacheExport.buildFeatureCollection({
+        features:      CacheMap.getFeatures(),
+        countryConfig: country,
+        stateCode,
+        stateName:     st.name,
+        visitsByRegionCode,
+        mode,
+      });
+
+      if (!fc.features.length) {
+        showToast('Keine Landkreise zum Exportieren.', 'error');
+        return;
+      }
+
+      CacheExport.triggerDownload(
+        CacheExport.buildFilename(country.code, st.name, mode),
+        JSON.stringify(fc)
+      );
+      showToast(`${fc.features.length} Landkreise heruntergeladen.`);
+    } catch (e) {
+      console.error('Export fehlgeschlagen:', e);
+      showToast('Export fehlgeschlagen: ' + e.message, 'error');
+    }
   }
 
   function toggleState(stateCode, forceVisible) {

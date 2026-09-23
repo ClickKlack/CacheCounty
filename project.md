@@ -103,6 +103,20 @@ Ein kollabiertes Seitenpanel zeigt alle übergeordneten Verwaltungseinheiten (Bu
 - Schlüssel: `cc_states_{username}_{countryCode}` (z. B. `cc_states_MaxMustermann_DE`)
 - Beim Wechsel des Landes oder Users wird der passende Zustand geladen bzw. auf „alle eingeblendet" zurückgesetzt
 
+#### GeoJSON-Export (Issue #1)
+
+Für den **eingeloggten Besitzer** erscheinen je Bundesland zwei Download-Buttons am rechten Rand der Listenzeile:
+
+| Button | Inhalt der Datei | Dateiname |
+|--------|------------------|-----------|
+| ⭳ (neutral) | Alle Landkreise des Bundeslandes, farbcodiert: gefundene grün (`#4a6741`), fehlende rot (`#c45c2a`) | `cachecounty_DE_{bundesland}_alle.geojson` |
+| ⭳ (rot) | Nur die nicht besuchten Landkreise – erscheint nur, wenn welche fehlen | `cachecounty_DE_{bundesland}_fehlend.geojson` |
+
+- Ziel ist der Import in **c:geo** über „Track laden"; die Einfärbung erfolgt über simplestyle-Properties (`fill`, `fill-opacity`, `stroke`, `stroke-opacity`, `stroke-width`), die c:geo je Feature auswertet
+- Die Erzeugung ist **rein clientseitig** – kein API-Endpunkt nötig, da GeoJSON und Besuchsdaten im Browser bereits vorliegen
+- Ausgeblendete Bundesländer lassen sich ebenfalls exportieren; die Panel-Sichtbarkeit beeinflusst den Dateiinhalt nicht
+- Bewusst **kein** Gesamt-Export je Land: c:geo lehnt den Import ab, wenn `Dateigröße × 10 > freier Speicher`
+
 ---
 
 ### 5.3 Landkreis-Dialog
@@ -309,7 +323,8 @@ Felder je Land:
 9. GeoJSON-Daten: DE (✅ erledigt) / AT (✅ erledigt)
 10. GeoJSON-Vereinfachung (✅ erledigt – DE von 5,2 MB auf 1,1 MB reduziert)
 11. Statistikseite `/stats/{username}` mit Rangliste (✅ erledigt)
-12. Testing & Deployment (❌ offen)
+12. Testing & Deployment (✅ erledigt – PHPUnit + Vitest, CI/CD-Pipeline)
+13. GeoJSON-Export fehlender Landkreise für c:geo, Issue #1 (✅ erledigt)
 
 ---
 
