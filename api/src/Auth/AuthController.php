@@ -8,6 +8,7 @@ use CacheCounty\Shared\Database;
 use CacheCounty\Shared\Guard;
 use CacheCounty\Shared\Request;
 use CacheCounty\Shared\Response;
+use CacheCounty\Shared\Token;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 
@@ -20,6 +21,13 @@ class AuthController
     // Probability (1–100) of running garbage collection on each magic-link request
     private const GC_PROBABILITY     = 2;
 
+    // Rate limits for POST /api/auth/magic-link (overridable via app config for tests)
+    private const IP_LIMIT_PER_HOUR  = 20;   // requests per IP and hour → 429 beyond
+    private const USER_LIMIT_15_MIN  = 3;    // links per account in 15 min → silently skipped
+    // Minimum response time, so known and unknown addresses cannot be told apart
+    // by timing. Residual risk: if SMTP takes longer than this, the difference shows.
+    private const MIN_RESPONSE_MS    = 1500;
+
     // -------------------------------------------------------------------------
 
     /**
@@ -27,17 +35,24 @@ class AuthController
      * Body: { "email": "user@example.com" }
      *
      * Generates a magic link token and sends it via e-mail.
-     * Always returns a generic success message to prevent e-mail enumeration.
+     * Always returns the same generic success message – same status, same body,
+     * same minimum duration – whether the address is known or not (no enumeration).
+     *
+     * Rate limits: per IP (429 beyond the limit) and per account (further links are
+     * silently not sent, so the limit does not reveal whether the address exists).
      */
     public function requestMagicLink(Request $request): void
     {
-        $email = trim((string) $request->input('email', ''));
+        $startedAt = microtime(true);
+        $email     = trim((string) $request->input('email', ''));
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('Invalid e-mail address.');
         }
 
-        $db   = Database::get();
+        $db = Database::get();
+        $this->enforceIpLimit($db, $request->ip());
+
         $stmt = $db->prepare(
             'SELECT id FROM users WHERE email = ? AND is_active = 1 LIMIT 1'
         );
@@ -45,40 +60,52 @@ class AuthController
         $user = $stmt->fetch();
 
         // Silently succeed even when the e-mail is unknown (no enumeration)
-        if ($user) {
-            $token     = bin2hex(random_bytes(32)); // 64 hex chars
+        if ($user && !$this->userLimitReached($db, (int) $user['id'])) {
+            $token     = Token::generate();
             $expiresAt = gmdate('Y-m-d H:i:s', strtotime('+' . self::MAGIC_LINK_TTL_MIN . ' minutes'));
 
+            // Only the hash is stored; the raw token goes out by e-mail only
             $db->prepare(
                 'INSERT INTO magic_links (user_id, token, expires_at, ip_address)
                  VALUES (?, ?, ?, ?)'
-            )->execute([$user['id'], $token, $expiresAt, $request->ip()]);
+            )->execute([$user['id'], Token::hash($token), $expiresAt, $request->ip()]);
 
-            $this->sendMagicLinkEmail($email, $token);
+            // A mail failure must not change the response – otherwise it would only
+            // ever show up for registered addresses
+            try {
+                $this->sendMagicLinkEmail($email, $token);
+            } catch (\Throwable $e) {
+                error_log('[CacheCounty] Magic link mail failed: ' . $e->getMessage());
+            }
         }
 
         // Probabilistic garbage collection (no SQL events on shared hosting)
         $this->maybeRunGc();
 
+        $this->padResponseTime($startedAt);
         Response::ok(['message' => 'If this e-mail is registered, a login link has been sent.']);
     }
 
     // -------------------------------------------------------------------------
 
     /**
-     * GET /api/auth/verify?token=<hex>
+     * POST /api/auth/verify
+     * Body: { "token": "<hex>" }
      *
-     * Validates the magic link token, creates a session and sets a cookie.
+     * Validates the magic link token, creates a session and sets the HttpOnly cookie.
+     * POST (not GET) so that the request is subject to the same-origin checks for
+     * state-changing requests – a foreign page cannot log a visitor into another account.
      */
     public function verifyToken(Request $request): void
     {
-        $token = trim((string) $request->query('token'));
+        $token = trim((string) $request->input('token', ''));
 
         if (strlen($token) !== 64) {
             Response::error('Invalid token.');
         }
 
-        $db = Database::get();
+        $db        = Database::get();
+        $tokenHash = Token::hash($token);
 
         // Atomically mark token as used — only succeeds if valid, unexpired, unused and user active
         $stmt = $db->prepare(
@@ -90,7 +117,7 @@ class AuthController
                 AND ml.used_at IS NULL
                 AND u.is_active = 1'
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$tokenHash]);
 
         if ($stmt->rowCount() !== 1) {
             Response::error('Token is invalid, expired or has already been used.', 401);
@@ -104,18 +131,22 @@ class AuthController
               WHERE ml.token = ?
               LIMIT 1'
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$tokenHash]);
         $link = $stmt->fetch();
 
-        // Create session
-        $sessionId = bin2hex(random_bytes(32));
+        // Older, still unused links of this user become worthless after a successful login
+        $db->prepare('DELETE FROM magic_links WHERE user_id = ? AND used_at IS NULL')
+           ->execute([$link['user_id']]);
+
+        // Create session: the cookie carries the raw token, the database only its hash
+        $sessionId = Token::generate();
         $expiresAt = gmdate('Y-m-d H:i:s', strtotime('+' . self::SESSION_TTL_DAYS . ' days'));
 
         $db->prepare(
             'INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent)
              VALUES (?, ?, ?, ?, ?)'
         )->execute([
-            $sessionId,
+            Token::hash($sessionId),
             $link['user_id'],
             $expiresAt,
             $request->ip(),
@@ -127,10 +158,10 @@ class AuthController
             strtotime('+' . self::SESSION_TTL_DAYS . ' days')
         ));
 
+        // The token itself is only in the cookie, never in the response body
         Response::ok([
             'username' => $link['username'],
             'is_admin' => (bool) $link['is_admin'],
-            'token'    => $sessionId, // also returned for API clients that can't use cookies
         ]);
     }
 
@@ -139,7 +170,7 @@ class AuthController
     /**
      * GET /api/auth/me
      *
-     * Returns the currently authenticated user based on session cookie or bearer token.
+     * Returns the currently authenticated user based on the session cookie.
      */
     public function me(Request $request): void
     {
@@ -165,13 +196,33 @@ class AuthController
         if ($token) {
             Database::get()
                 ->prepare('DELETE FROM sessions WHERE id = ?')
-                ->execute([$token]);
+                ->execute([Token::hash($token)]);
         }
 
         // Clear cookie
         setcookie('cc_session', '', $this->cookieOptions(time() - 3600));
 
         Response::ok(['message' => 'Logged out.']);
+    }
+
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /api/auth/logout-all
+     *
+     * Invalidates all sessions of the current user, on every device.
+     */
+    public function logoutAll(Request $request): void
+    {
+        $user = Guard::requireAuth($request);
+
+        Database::get()
+            ->prepare('DELETE FROM sessions WHERE user_id = ?')
+            ->execute([$user['user_id']]);
+
+        setcookie('cc_session', '', $this->cookieOptions(time() - 3600));
+
+        Response::ok(['message' => 'Logged out everywhere.']);
     }
 
     // -------------------------------------------------------------------------
@@ -216,6 +267,7 @@ class AuthController
         $mail = new PHPMailer(true);
         $mail->CharSet = 'UTF-8';
         $mail->isSMTP();
+        $mail->Timeout    = 10;   // default is 300 s – a hanging mail server must not block logins
         $mail->Host       = $config['smtp_host']   ?? '';
         $mail->Port       = (int) ($config['smtp_port']   ?? 587);
         $mail->Username   = $config['smtp_user'] ?? '';
@@ -320,6 +372,56 @@ class AuthController
     }
 
     /**
+     * Counts magic-link requests per IP within the last hour and exits with 429
+     * beyond the limit. Every request counts, known address or not.
+     */
+    private function enforceIpLimit(\PDO $db, string $ip): void
+    {
+        $limit = (int) (Config::app()['magic_link_ip_limit_per_hour'] ?? self::IP_LIMIT_PER_HOUR);
+
+        $stmt = $db->prepare(
+            'SELECT COUNT(*) FROM auth_attempts
+              WHERE ip_address = ? AND created_at > NOW() - INTERVAL 1 HOUR'
+        );
+        $stmt->execute([$ip]);
+
+        if ((int) $stmt->fetchColumn() >= $limit) {
+            Response::error('Too many requests.', 429);
+        }
+
+        $db->prepare('INSERT INTO auth_attempts (ip_address) VALUES (?)')->execute([$ip]);
+    }
+
+    /**
+     * True if the account already got the maximum number of links in the last 15 minutes.
+     */
+    private function userLimitReached(\PDO $db, int $userId): bool
+    {
+        $limit = (int) (Config::app()['magic_link_user_limit_per_15min'] ?? self::USER_LIMIT_15_MIN);
+
+        $stmt = $db->prepare(
+            'SELECT COUNT(*) FROM magic_links
+              WHERE user_id = ? AND created_at > NOW() - INTERVAL 15 MINUTE'
+        );
+        $stmt->execute([$userId]);
+
+        return (int) $stmt->fetchColumn() >= $limit;
+    }
+
+    /**
+     * Sleeps until at least MIN_RESPONSE_MS have passed since $startedAt.
+     */
+    private function padResponseTime(float $startedAt): void
+    {
+        $minMs     = (int) (Config::app()['magic_link_min_response_ms'] ?? self::MIN_RESPONSE_MS);
+        $elapsedMs = (microtime(true) - $startedAt) * 1000;
+
+        if ($elapsedMs < $minMs) {
+            usleep((int) (($minMs - $elapsedMs) * 1000));
+        }
+    }
+
+    /**
      * Probabilistic garbage collection for expired tokens and sessions.
      * Runs with a probability of GC_PROBABILITY percent.
      */
@@ -332,5 +434,6 @@ class AuthController
         $db = Database::get();
         $db->exec('DELETE FROM magic_links WHERE expires_at < NOW()');
         $db->exec('DELETE FROM sessions     WHERE expires_at < NOW()');
+        $db->exec('DELETE FROM auth_attempts WHERE created_at < NOW() - INTERVAL 1 DAY');
     }
 }

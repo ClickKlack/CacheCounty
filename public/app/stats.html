@@ -2,15 +2,29 @@
 <html lang="de" class="stats-page">
 <head>
   <meta charset="UTF-8">
+  <!-- Content-Security-Policy: nur eigene Skripte, Schriften und API; Kacheln von OSM.
+       'unsafe-inline' bei Styles wegen style="…" in HTML und innerHTML-Templates.
+       frame-ancestors wirkt nur als HTTP-Header (public/.htaccess). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base href="/app/">
-  <title>CacheCounty – Statistiken</title>
+  <title>Statistiken – CacheCounty</title>
+  <meta name="description" content="Statistiken, Meilensteine und Rangliste bei CacheCounty: Wie viele Landkreise, Bezirke und Kommunen hat ein Geocacher schon besucht?">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="CacheCounty">
+  <meta property="og:locale" content="de_DE">
+  <meta property="og:title" content="Statistiken – CacheCounty">
+  <meta property="og:description" content="Statistiken, Meilensteine und Rangliste bei CacheCounty: Wie viele Landkreise, Bezirke und Kommunen hat ein Geocacher schon besucht?">
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#3a2e1f">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="vendor/chart.js/4.5.1/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
 
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -43,7 +57,6 @@
           <h1 class="stats-hero-title" id="hero-title">Statistiken</h1>
           <p class="stats-hero-sub" id="hero-sub"></p>
         </div>
-        <a id="hero-map-link" href="#" class="btn btn-ghost btn-sm" style="text-decoration:none">← Zur Karte</a>
       </div>
     </div>
 
@@ -122,6 +135,8 @@
   </div>
 
   <script src="js/api.js"></script>
+  <script src="js/auth-menu.js"></script>
+  <script src="js/page-meta.js"></script>
   <script src="js/stats.js"></script>
 </body>
 </html>

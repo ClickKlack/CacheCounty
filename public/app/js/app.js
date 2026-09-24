@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── State ─────────────────────────────────────────────────────
   const state = {
-    session:        null,   // { username, is_admin, token } | null
+    session:        null,   // { username, is_admin } | null – immer vom Server (/me, /verify)
     countries:      [],     // full country configs from API
     currentCountry: null,   // active country config object
     pageUser:       null,   // username from URL /map/{username}
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function escHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function showLoader() { els.mapLoader.classList.remove('hidden'); }
@@ -129,11 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!token) return;
     history.replaceState({}, '', location.pathname);
     try {
-      const data = await Api.verifyToken(token);
-      sessionStorage.setItem('cc_token',    data.token);
-      sessionStorage.setItem('cc_username', data.username);
-      sessionStorage.setItem('cc_admin',    data.is_admin ? '1' : '0');
-      state.session = data;
+      // Der Server setzt das HttpOnly-Cookie; hier kommen nur Name und Rolle an
+      state.session = await Api.verifyToken(token);
     } catch (e) {
       showToast('Der Login-Link ist ungültig oder abgelaufen.', 'error');
     }
@@ -151,48 +148,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   }
 
-  function restoreSession() {
-    const token    = sessionStorage.getItem('cc_token');
-    const username = sessionStorage.getItem('cc_username');
-    const isAdmin  = sessionStorage.getItem('cc_admin') === '1';
-    if (token && username) state.session = { token, username, is_admin: isAdmin };
-  }
-
-  function renderAuthArea() {
-    const statsUser = state.pageUser || state.session?.username;
-    const statsHref = statsUser ? '/stats/' + encodeURIComponent(statsUser) : null;
-    if (state.session) {
-      els.authArea.innerHTML =
-        `<div class="auth-user">
-           <span class="auth-hint">Eingeloggt als</span>
-           <span class="auth-name">${escHtml(state.session.username)}</span>
-         </div>` +
-        (state.session.is_admin
-          ? `<a href="admin.html" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Admin</a>`
-          : '') +
-        (statsHref
-          ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
-          : '') +
-        `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
-      $('btn-logout')?.addEventListener('click', logout);
-    } else {
-      els.authArea.innerHTML =
-        (statsHref
-          ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
-          : '') +
-        `<button id="btn-login" class="btn btn-ghost">Anmelden</button>`;
-      $('btn-login')?.addEventListener('click', () => openDialog('login'));
-    }
-  }
-
-  async function logout() {
-    try { await Api.logout(); } catch (_) {}
-    sessionStorage.clear();
+  // Aufgerufen von api.js bei 401: Session abgelaufen oder anderswo beendet
+  function onSessionLost() {
+    if (!state.session) return;
     state.session = null;
     renderAuthArea();
     renderOwnerBadge();
     renderStatePanel();   // entfernt die Download-Buttons des Besitzers
     closeDialog();
+    showToast('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.', 'error');
+  }
+
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
+  function renderAuthArea() {
+    const statsUser = state.pageUser || state.session?.username;
+    const statsItem = statsUser
+      ? [{ label: 'Statistiken', href: '/stats/' + encodeURIComponent(statsUser) }]
+      : [];
+
+    if (state.session) {
+      AuthMenu.render(els.authArea, {
+        username: state.session.username,
+        items: [
+          ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
+          ...statsItem,
+          { label: 'Abmelden', onClick: () => logout(false) },
+          { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+            onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+        ],
+      });
+    } else {
+      AuthMenu.render(els.authArea, {
+        items: [...statsItem, { label: 'Anmelden', onClick: () => openDialog('login') }],
+      });
+    }
+  }
+
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch (_) {}
+    state.session = null;
+    renderAuthArea();
+    renderOwnerBadge();
+    renderStatePanel();   // entfernt die Download-Buttons des Besitzers
+    closeDialog();
+  }
+
+  // Titel, Beschreibung und canonical-URL je Karte (page-meta.js)
+  function updatePageMeta() {
+    const user = state.pageUser;
+    if (!user) {
+      PageMeta.set({ path: '/' });
+      return;
+    }
+    const heading = `Karte von ${user}`;
+    $('page-title').textContent = heading;
+    PageMeta.set({
+      title:       `${heading} – CacheCounty`,
+      description: `Welche Landkreise, Bezirke und Kommunen hat ${user} schon besucht? ` +
+                   `Die Geocaching-Karte von ${user} bei CacheCounty.`,
+      path:        '/map/' + encodeURIComponent(user),
+    });
   }
 
   // ── Owner badge ───────────────────────────────────────────────
@@ -509,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStatePanel();
       onRegionClick(state.activeRegion);
     } catch (e) {
-      alert('Fehler: ' + e.message);
+      if (e.status !== 401) alert('Fehler: ' + e.message);   // 401 meldet onSessionLost()
     } finally {
       els.btnToggle.disabled = false;
     }
@@ -529,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStatePanel();
       onRegionClick(state.activeRegion);
     } catch (e) {
-      alert('Fehler: ' + e.message);
+      if (e.status !== 401) alert('Fehler: ' + e.message);   // 401 meldet onSessionLost()
     } finally {
       els.btnSave.disabled = false;
     }
@@ -550,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
       els.loginEmail.value = '';
     } catch (e) {
       els.loginMsg.className   = 'login-msg error';
-      els.loginMsg.textContent = '✕ ' + e.message;
+      els.loginMsg.textContent = '✕ ' + Api.magicLinkErrorText(e);
       els.loginMsg.classList.remove('hidden');
     } finally {
       els.btnSendMagic.disabled = false;
@@ -582,18 +598,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Boot ──────────────────────────────────────────────────────
 
   async function boot() {
+    Api.setUnauthorizedHandler(onSessionLost);
     await checkMagicLinkToken();
-    restoreSession();
 
-    // If sessionStorage is empty, try restoring the session via the HttpOnly cookie
+    // Anmeldestatus und Rolle kommen immer vom Server – nie aus dem Browser-Speicher
     if (!state.session) {
       try {
-        const data = await Api.me();
-        state.session = data;
-      } catch (_) { /* not logged in */ }
+        state.session = await Api.me();
+      } catch (_) { /* nicht eingeloggt */ }
     }
 
     state.pageUser = getPageUsername();
+    updatePageMeta();
     renderAuthArea();
     renderOwnerBadge();
     CacheMap.init('map');

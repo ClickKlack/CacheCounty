@@ -9,12 +9,12 @@ class Config
 
     /**
      * Returns the application config.
-     * app.local.php overrides app.php (excluded from VCS).
+     * CACHECOUNTY_APP_CONFIG (integration tests) > app.local.php > app.php.
      */
     public static function app(): array
     {
         if (self::$app === null) {
-            $configFile = BASE_PATH . '/config/app.local.php';
+            $configFile = getenv('CACHECOUNTY_APP_CONFIG') ?: BASE_PATH . '/config/app.local.php';
             if (!file_exists($configFile)) {
                 $configFile = BASE_PATH . '/config/app.php';
             }

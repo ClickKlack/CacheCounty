@@ -7,6 +7,7 @@ class Request
 {
     private array  $params = [];
     private ?array $body   = null;
+    private ?array $user   = null;
 
     public function method(): string
     {
@@ -17,6 +18,21 @@ class Request
     {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         return rtrim($uri, '/') ?: '/';
+    }
+
+    /**
+     * Authenticated user, set by the Router/Guard once per request.
+     *
+     * @return array{user_id: int, username: string, is_admin: int}|null
+     */
+    public function user(): ?array
+    {
+        return $this->user;
+    }
+
+    public function setUser(array $user): void
+    {
+        $this->user = $user;
     }
 
     public function setParams(array $params): void
@@ -48,18 +64,15 @@ class Request
         return $this->body()[$key] ?? $default;
     }
 
-    public function bearerToken(): ?string
-    {
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (str_starts_with($header, 'Bearer ')) {
-            return substr($header, 7);
-        }
-        return null;
-    }
-
+    /**
+     * Session token from the HttpOnly cookie – the only supported transport.
+     * (A Bearer header is deliberately not accepted: the token must never be
+     * readable by JavaScript.)
+     */
     public function sessionToken(): ?string
     {
-        return $_COOKIE['cc_session'] ?? $this->bearerToken();
+        $token = $_COOKIE['cc_session'] ?? null;
+        return is_string($token) && $token !== '' ? $token : null;
     }
 
     public function ip(): string
@@ -76,8 +89,10 @@ class Request
         }
 
         // If REMOTE_ADDR is a private/reserved address we are behind a local
-        // reverse proxy (e.g. Apache mod_proxy on shared hosting).
-        // In that case, pick the first public IP from X-Forwarded-For.
+        // reverse proxy (e.g. nginx in front of Apache on shared hosting).
+        // In that case, use the LAST public IP from X-Forwarded-For: our proxy
+        // appends the real client address at the end, everything before it was
+        // sent by the client and can be forged (e.g. to bypass rate limits).
         $isPrivate = filter_var(
             $remoteAddr,
             FILTER_VALIDATE_IP,
@@ -85,7 +100,7 @@ class Request
         ) === false;
 
         if ($isPrivate && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $candidate) {
+            foreach (array_reverse(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])) as $candidate) {
                 $candidate = trim($candidate);
                 if (filter_var(
                     $candidate,

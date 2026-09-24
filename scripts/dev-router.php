@@ -16,8 +16,8 @@ $public = dirname(__DIR__) . '/public';
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $path   = ltrim($uri, '/');
 
-// API → Front-Controller
-if (preg_match('/^api\//', $path)) {
+// API → Front-Controller (auch die Sitemap wird dort erzeugt)
+if (preg_match('/^api\//', $path) || $path === 'sitemap.xml') {
     require $public . '/api/index.php';
     return true;
 }

@@ -18,14 +18,17 @@ Statistikseite plus eine globale Rangliste.
 | Backend     | PHP 8.3+ (kein Framework), PDO/MariaDB 10.4+                  |
 | Composer    | nur `phpmailer/phpmailer` (prod) + `phpunit/phpunit` (dev)    |
 | Frontend    | Vanilla JS (ES-IIFE-Module, kein Bundler), Leaflet 1.9.4      |
-| Libraries   | turf.js 6.5 (Landesumriss), Chart.js 4 (Timeline) – via CDN   |
+| Libraries   | Chart.js 4.5.1 (Timeline) – selbst gehostet in `public/app/vendor/` |
 | Karten      | OpenStreetMap-Tiles, kein API-Key                             |
 | Tests       | PHPUnit (API) + Vitest (Frontend)                             |
 | Hosting     | klassisches Shared Hosting, Apache + mod_rewrite              |
 
 **Wichtige Konsequenz aus dem Hosting:** kein Build-Step, kein npm im Produktivpfad,
 keine Cronjobs, keine SQL-Events. Alles muss als statische Dateien + PHP-Frontcontroller
-funktionieren. Abhängigkeiten werden per CDN eingebunden, nicht gebündelt.
+funktionieren. Fremdbibliotheken und Schriften liegen unverändert unter
+`public/app/vendor/` (Version im Pfad, Prüfsummen in `vendor/README.md`), es gibt kein
+CDN und kein Google Fonts. Die Seiten fragen nur die eigene Origin und die
+OSM-Kachelserver an.
 
 ---
 
@@ -35,22 +38,34 @@ funktionieren. Abhängigkeiten werden per CDN eingebunden, nicht gebündelt.
 public/                     Docroot – nur was hier liegt, ist per HTTP erreichbar
   .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
   api/index.php             Front-Controller: API-Header, Exception-Handler, Dispatch
+  favicon.svg, favicon.ico  Favicon (◈ aus dem Logo); dazu apple-touch-icon.png, icon-192/512.png
+  site.webmanifest          Web-App-Manifest (Name, Farben, Icons)
+  robots.txt                sperrt nur /api/ – Admin-Seite nutzt noindex (muss lesbar bleiben);
+                            verweist auf die Sitemap (Produktions-URL fest eingetragen)
   app/                      Frontend (statisch, <base href="/app/">)
-    index.html              Kartenansicht      → js/api.js, js/map.js, js/export.js, js/app.js
-    stats.html              Statistikseite     → js/api.js, js/stats.js
-    admin.html              Adminbereich       → js/api.js, js/admin.js
+    index.html              Kartenansicht      → js/api.js, js/auth-menu.js, js/outline.js, js/map.js, js/export.js, js/app.js
+    stats.html              Statistikseite     → js/api.js, js/auth-menu.js, js/stats.js
+    admin.html              Adminbereich       → js/api.js, js/auth-menu.js, js/admin.js
+    js/auth-menu.js         Header-Menü aller Seiten (Desktop-Leiste / Mobil-Hamburger)
     js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
+    js/outline.js           Landesumriss aus den Regionsflächen (Leaflet-frei, testbar)
+    js/page-meta.js         Titel, Beschreibung, canonical je Karte/Statistik (PageMeta.set)
+    vendor/                 Leaflet, Chart.js, Schriften – unverändert, siehe vendor/README.md
+    img/gc.png              Symbol des Geocaching-Buttons (Favicon von geocaching.com, lokal)
     css/app.css             ein Stylesheet für alle drei Seiten
   data/*.geojson            Geodaten – gitignored UND vom Deploy ausgeschlossen
 api/                        REST-API (PHP), außerhalb des Docroots
   src/routes.php            zentrale Routentabelle
-  src/Shared/               Router, Request, Response, Database, Guard
-  src/{Auth,Region,Admin,Stats}/*Controller.php
+  src/Shared/               Router, Access, OriginCheck, Guard, Request, Response, Database, Config, Token
+  src/{Auth,Region,Admin,Stats,Seo}/*Controller.php
   config/{app,database}.php Templates; *.local.php überschreibt (gitignored)
-  tests/                    PHPUnit (RequestTest, RouterTest)
+  tests/                    PHPUnit: Unit-Tests (Request, Router, Routen-Vollständigkeit)
+  tests/Integration/        PHPUnit gegen Testdatenbank + Dev-Server (Rollen-Matrix u. a.)
 config/countries.json       Länderkonfiguration (Projektwurzel, nicht api/config/!)
 tests/api.test.js           Vitest für public/app/js/api.js
 tests/export.test.js        Vitest für public/app/js/export.js
+tests/auth-menu.test.js     Vitest für public/app/js/auth-menu.js (buildHtml)
+tests/outline.test.js       Vitest für public/app/js/outline.js
 scripts/dev-router.php      Dev-Server-Router (bildet public/.htaccess nach)
 scripts/dev.sh              startet die lokale Entwicklungsumgebung
 scripts/dev.config.example.sh  Vorlage → scripts/dev.config.sh (gitignored)
@@ -72,8 +87,8 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 44 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit, 28 Tests
+npm test                          # Vitest, 69 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 54 Unit- + 147 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -81,7 +96,25 @@ npm ci
 ```
 
 Beide Suites laufen aktuell grün. Vor jedem Commit beide ausführen – die CI führt
-zusätzlich `composer validate --strict` und `php -l` über `api/src/` aus.
+zusätzlich `composer validate --strict` und `php -l` über `api/src/` aus. Die CI läuft
+auch für Pull Requests.
+
+**Integrationstests** (`api/tests/Integration/`) laufen nur, wenn
+`CACHECOUNTY_TEST_DB_NAME` gesetzt ist, sonst werden sie übersprungen. Lokal gibt es
+dafür die Datenbank `CacheCounty_test`, Zugang wie die Entwicklungs-DB. Einrichtung
+siehe README → „Tests". Mechanik:
+
+- `ApiTestCase` startet einmal pro Lauf `php -S` mit `scripts/dev-router.php` auf einem
+  freien Port und reicht die Test-Konfiguration über `CACHECOUNTY_DB_CONFIG` und
+  `CACHECOUNTY_APP_CONFIG` durch. Diese Variablen werten `Database` und `Config` vor den
+  `*.local.php` aus.
+- Das Schema wird aus `database.sql` aufgebaut; vor jedem Test werden alle Tabellen
+  geleert und feste Fixtures angelegt (Admin, User A mit Besuch, User B, deaktivierter
+  Admin, je eine Session mit bekanntem Token).
+- Schutz: Der Datenbankname muss auf `_test` enden, sonst bricht der Lauf ab.
+- `RouteMatrix` legt den erwarteten Status je Route und Rolle fest.
+  `RoutesCompletenessTest` (Unit, ohne DB) verlangt für jede Route in `routes.php`
+  einen Eintrag. **Neue Route = neuer Matrix-Eintrag.**
 
 ### Lokal starten
 
@@ -154,14 +187,40 @@ abgeleitet (`region_code_property`, `state_code_property` …) – es gibt bewus
 **keine** Regionen-Tabelle in der Datenbank. Wer eine solche Tabelle einführen will,
 bricht dieses Prinzip.
 
+**Reihenfolge der Länder** bestimmt `RegionController::sortCountries()`: Länder mit
+`"pinned": true` zuerst (heute nur DE), danach alphabetisch nach `label`, per `Collator`
+bzw. ohne `intl` mit Umlaut-Rückfall. Die Reihenfolge in `countries.json` spielt keine
+Rolle. Das erste Land ist die Voreinstellung der Karte.
+
+**Besuche werden serverseitig validiert, ohne das GeoJSON zu lesen.**
+`RegionController::parseCode()` prüft, dass das Land in `countries.json` steht und der
+Regionscode zum optionalen `region_code_pattern` des Landes passt (DE `^[0-9]{5}$`,
+AT `^[0-9]{3}$`, CH `^[0-9]{3,4}$`, DK `^[0-9]{4}$`). Ob der Code wirklich existiert,
+weiß nur das GeoJSON; es pro Request zu parsen (3,8 MB) wäre zu teuer. Das Muster ist der Kompromiss gegen erfundene
+Besuche in der Rangliste. Ein neues Land sollte ein Muster mitbringen. Freitexte:
+`notes` höchstens 2000 Zeichen, `region_name` höchstens 255, beide nur als String.
+
 **Die Datenbank kennt nur Besuche.** `visits` speichert `country_code` + `region_code`
 + einen denormalisierten `region_name`. Gesamtzahlen („42 von 401") stammen immer aus
 dem GeoJSON, nie aus der DB.
 
-**Sessions sind serverseitig, kein JWT.** Token = 64 Hex-Zeichen, liegt als PK in
-`sessions`. Übertragung per HttpOnly-Cookie `cc_session` **oder** `Authorization: Bearer`
-(`Request::sessionToken()` prüft in dieser Reihenfolge). Das Frontend spiegelt den Token
-zusätzlich in `sessionStorage`, damit `api.js` den Bearer-Header setzen kann.
+**Sessions sind serverseitig, kein JWT.** Token = 64 Hex-Zeichen (`Token::generate()`).
+In der DB steht **nur der SHA-256-Hash** (`Token::hash()`), in `sessions.id` ebenso wie
+in `magic_links.token`. Der Roh-Token verlässt den Server genau einmal, per Cookie bzw.
+Mail. Wer Sessions oder Links in der DB sucht, muss also immer den Hash vergleichen.
+Die Admin-Sessionliste gibt den Hash als `id` aus; er taugt zum Beenden der Session,
+nicht zum Anmelden.
+Übertragung **ausschließlich** per HttpOnly-Cookie `cc_session` (`Request::sessionToken()`).
+Ein `Authorization: Bearer`-Header wird bewusst nicht akzeptiert, und keine API-Antwort
+enthält den Token. JavaScript sieht ihn also nie, auch nicht bei einer XSS-Lücke.
+
+**Anmeldestatus und Rolle kommen im Frontend immer vom Server.** Jede Seite fragt beim
+Laden `GET /api/auth/me` ab (bzw. übernimmt die Antwort von `/verify`). Nichts davon wird
+im Browser gespeichert. Ein manipulierter Browser-Speicher kann deshalb keinen
+Admin-Link mehr einblenden. Die Admin-Seite zeigt ihren Inhalt erst, wenn `/me`
+`is_admin` bestätigt. Bei 401 ruft `api.js` den per `Api.setUnauthorizedHandler()`
+registrierten Handler auf; die Seite schaltet dann auf „abgemeldet" (Karte, Statistik)
+bzw. leitet zur Karte weiter (Admin). Fehler tragen `err.status`.
 
 ---
 
@@ -176,10 +235,23 @@ Der Router instanziiert den Controller ohne Konstruktorargumente – **kein DI-C
 Nach einem `Response::`-Aufruf folgt nie weiterer Code. Format immer
 `{"success":bool,"data":…}` bzw. `{"success":false,"error":"…"}`.
 
-**Auth-Guards am Methodenanfang.** `Guard::requireAuth($request)` bzw.
-`Guard::requireAdmin($request)` als erste Zeile; Rückgabe ist
-`['user_id','username','is_admin']`. Es gibt keine Middleware-Schicht – wer den Guard
-vergisst, macht den Endpunkt öffentlich. **Bei jedem neuen schreibenden Endpunkt prüfen.**
+**Zugriffsstufe pro Route, geprüft im Router (Default-Deny).** Jede Registrierung in
+`routes.php` braucht als drittes Argument `Access::Public`, `Access::User` oder
+`Access::Admin`. Ohne diese Angabe scheitert sie sofort, es gibt keinen Standardwert.
+`Router::dispatch()` prüft die Stufe über `Guard`, **bevor** der Controller läuft, und
+legt den Nutzer in `$request->user()` ab. Die `Guard::`-Aufrufe am Anfang der
+Controller-Methoden bleiben als zweite Absicherung; sie lesen den Nutzer aus dem
+Request und fragen die DB nicht erneut. Rückgabe ist `['user_id','username','is_admin']`.
+
+**Origin-Prüfung für schreibende Requests (CSRF).** Vor jedem POST/PUT/PATCH/DELETE
+prüft `OriginCheck` im Router:
+- Der Request muss von der eigenen Origin kommen: `Sec-Fetch-Site: same-origin`, oder
+  `Origin` bzw. `Referer` passt zu `base_url` oder `allowed_origins`. Sonst 403.
+- Ein Body muss `application/json` sein, sonst 415.
+
+Requests ohne jede Herkunftsangabe (curl, Skripte) werden deshalb abgelehnt. Wer
+lokal per curl schreiben will, muss einen passenden `Origin`-Header mitschicken.
+`GET`/`HEAD` sind nicht betroffen. `HEAD` wird wie `GET` geroutet.
 
 **Routenreihenfolge zählt.** Der Router matcht in Registrierungsreihenfolge und
 ersetzt `{param}` durch `([^/]+)`. Deshalb steht `/api/leaderboard` in `routes.php`
@@ -204,17 +276,29 @@ hinter dem Reverse-Proxy des Hosters fehlt die Variable oft.
 **Client-IP** (`Request::ip()`) nutzt `CF-Connecting-IP` nur bei
 `trust_cloudflare = true` in `app.local.php`. Produktion läuft nicht hinter Cloudflare,
 dort bleibt der Wert `false` – sonst könnte jeder Client seine IP frei wählen.
+Hinter dem lokalen Reverse-Proxy des Hosters (private `REMOTE_ADDR`) gilt die **letzte**
+öffentliche IP aus `X-Forwarded-For`: Die hängt der Proxy an, alles davor kommt vom
+Client und ist fälschbar. Wichtig fürs Rate Limiting – nicht auf „erste IP" umstellen.
 
 ---
 
 ## 6. Frontend-Konventionen
 
 **Kein Modulsystem.** Jede Datei ist eine IIFE, die entweder ein Global exportiert
-(`Api`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
+(`Api`, `AuthMenu`, `CountryOutline`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
 kapselt (`app.js`, `admin.js`). Ladereihenfolge in den HTML-Dateien ist relevant:
-`api.js` zuerst, dann `map.js`, `export.js`, zuletzt `app.js`.
+`api.js` zuerst, dann `auth-menu.js`, `outline.js`, `map.js`, `export.js`, zuletzt `app.js`.
 
-**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js` und `export.js`
+**Header-Menü.** Alle drei Seiten rendern Anmeldestatus und Aktionen über
+`AuthMenu.render(container, { username, items })`. Ein Item ist entweder ein Link
+(`href`) oder eine Aktion (`onClick`). Ab 1100 px stehen die Items nebeneinander im
+Header, darunter hinter einem ☰-Button. Die Umschaltung läuft rein per CSS
+(`.auth-menu` in `app.css`) und hat einen eigenen Breakpoint: Die längste Leiste
+(fremde Statistik als Admin, fünf Einträge) braucht gut 1050 px. Neue Header-Aktionen
+deshalb als Item ergänzen, nicht als eigenes HTML neben dem Menü, und bei einem
+zusätzlichen Eintrag die Breite prüfen, sonst läuft der Header über.
+
+**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js`, `export.js`, `outline.js` und `AuthMenu.buildHtml()`
 kommen ohne Leaflet und ohne DOM-Bibliotheken aus und werden in den Vitest-Tests
 über `new Function(...)` mit gemockten Globals ausgewertet. Wer neue Logik
 testbar halten will, legt sie in ein solches Modul statt in `app.js` – dort ist
@@ -224,15 +308,38 @@ alles im `DOMContentLoaded`-Closure eingeschlossen und von außen nicht erreichb
 `els`-Objekt mit allen DOM-Referenzen. Neue Zustände dort ergänzen, keine
 verstreuten Modulvariablen.
 
-**HTML-Escaping ist manuell.** `app.js` und `admin.js` haben eine lokale
-`escHtml()`-Funktion für alles, was in `innerHTML` landet. `stats.js` hat sie **nicht** –
-dort werden Usernames und Länderlabels ungeprüft interpoliert. Entschärft wird das nur
-durch die Username-Validierung beim Anlegen (`^[a-zA-Z0-9_\-]{2,60}$`). Wer in `stats.js`
-neue `innerHTML`-Templates schreibt, sollte `escHtml()` dorthin mitnehmen.
+**HTML-Escaping ist manuell.** `app.js`, `admin.js`, `stats.js` und `auth-menu.js` haben je
+eine lokale `escHtml()` (escapt `& < > " '`). Alles, was per `innerHTML` ins DOM kommt,
+läuft da durch, auch Werte aus `countries.json` und GeoJSON. Neue Templates genauso,
+oder gleich `textContent` nutzen.
 
-**localStorage für Sichtbarkeit, sessionStorage für Auth.**
+**Suchmaschinen.** `/map/{user}` und `/stats/{user}` sind dieselben statischen Dateien.
+Titel, Beschreibung, `canonical` und `og:url` setzt deshalb `PageMeta.set()` je Nutzer
+(Google wertet das nach dem Rendern aus). Das statische HTML trägt die allgemeinen
+Texte und Open-Graph-Tags für Link-Vorschauen, die kein JavaScript ausführen. Die
+Kartenseite hat eine optisch versteckte `h1` und einen `noscript`-Text. Die Admin-Seite
+trägt `noindex`, API-Antworten den Header `X-Robots-Tag: noindex`. Die Favicons liegen
+im Docroot (`/favicon.ico` fragen Browser ohne `<link>` direkt ab). Quelle ist
+`favicon.svg`, die PNG- und ICO-Dateien sind daraus gerendert.
+`/sitemap.xml` erzeugt `SitemapController` (Route mit `Access::Public`, per Rewrite in
+`public/.htaccess` bzw. `scripts/dev-router.php` auf den Front-Controller). Sie listet die
+Startseite sowie Karte und Statistik jedes aktiven Nutzers mit mindestens einem Besuch.
+Die URLs sind absolut aus `base_url`, `lastmod` ist die letzte Besuchsänderung.
+`Response::raw()` liefert Nicht-JSON-Antworten.
+
+**Content-Security-Policy** steht als `<meta>`-Tag in allen drei HTML-Dateien:
+`script-src 'self'` (keine Inline-Skripte, kein `eval`/`new Function`), Bilder nur von
+der eigenen Origin, `data:` und den OSM-Kachelservern, `connect-src 'self'`.
+`'unsafe-inline'` gilt nur für Styles (`style="…"` in Templates). Eine neue
+Fremdressource oder Bibliothek, die Code per `eval` erzeugt, fällt in der
+Browser-Konsole sofort als CSP-Verstoß auf. Die CSP dann nicht aufweichen, sondern
+die Ursache beheben, wie bei Turf.
+
+**localStorage nur für Sichtbarkeit, nichts für Auth.**
 - `cc_states_{username}_{countryCode}` → Array der ausgeblendeten Bundesland-Codes
-- `cc_token`, `cc_username`, `cc_admin` → Session-Spiegel
+- Login-Daten gehören **nicht** in den Browser-Speicher (siehe §4). Die Altlasten
+  `cc_token`, `cc_username`, `cc_admin`, `cc_is_admin` in `sessionStorage` löscht
+  `api.js` beim Laden.
 
 **GeoJSON-Pfade unterscheiden sich pro Seite.** `app.js` nimmt nur den Dateinamen und
 baut `'../data/' + name` (relativ zu `<base href="/app/">`); `stats.js` nutzt
@@ -243,8 +350,13 @@ leicht zu übersehen.
 `stateMap` (`{stateCode: {name, total, regions[]}}`) zurück, aus der Panel und
 Statistiken gerechnet werden. Ausblenden eines Bundeslandes setzt `opacity: 0` **und**
 `pointerEvents: none` – die Daten bleiben unverändert, die Gesamtstatistik ebenfalls.
-Der Landesumriss wird per `turf.dissolve` berechnet; MultiPolygons müssen vorher in
-Polygone aufgelöst werden, sonst schlägt `dissolve` fehl.
+Den Landesumriss berechnet `CountryOutline.fromFeatures()` (`outline.js`): Kanten, die
+in genau einer Region vorkommen, bilden die Außengrenze und werden zu Linien verkettet.
+Bis Phase H war das `turf.dissolve`. Turf 6.5 erzeugt aber Code per `new Function` und
+verstößt damit gegen die CSP, und Turf 7 braucht für Deutschland rund 2 s statt 0,2 s.
+**Voraussetzung:** Nachbarregionen teilen exakt dieselben Eckpunkte, wie in den amtlichen
+Datensätzen. Für DE, AT, CH und DK ist das geprüft: identischer Umriss wie mit `dissolve`.
+Bei einer neuen GeoJSON-Datei vorher prüfen, dass keine Binnengrenzen im Umriss erscheinen.
 
 **GeoJSON-Export für c:geo.** Das Bundesland-Panel bietet dem eingeloggten Besitzer
 je Bundesland zwei Downloads: alle Landkreise farbcodiert (gefunden grün `#4a6741`,
@@ -276,13 +388,30 @@ Guard-Klausel – ohne sie würde jeder Download das Bundesland mit umschalten.
    (15 min gültig) und versendet es per PHPMailer/SMTP. Antwortet **immer** generisch
    erfolgreich, um E-Mail-Enumeration zu verhindern.
 2. Link zeigt auf `{base_url}/app/?token=…`.
-3. `GET /api/auth/verify?token=…` – markiert das Token per einzelnem `UPDATE … JOIN`
+3. `POST /api/auth/verify` mit `{ "token": … }` – bewusst POST, damit die Anfrage
+   denselben Same-Origin-Regeln unterliegt wie andere schreibende Requests. Markiert das Token per einzelnem `UPDATE … JOIN`
    atomar als benutzt (`rowCount() === 1` ist die eigentliche Prüfung), legt eine Session
-   an und setzt das Cookie. Token ist danach verbrannt.
+   an und setzt das Cookie. Token ist danach verbrannt, weitere noch unbenutzte Links
+   desselben Nutzers werden gelöscht.
 4. `app.js::checkMagicLinkToken()` entfernt den Token per `history.replaceState` aus der URL.
 
+`POST /api/auth/logout` beendet die aktuelle Session, `POST /api/auth/logout-all` alle
+Sessions des Nutzers („Überall abmelden" in `app.js`).
+
+**Rate Limiting und Enumerationsschutz** in `requestMagicLink`:
+- pro IP höchstens 20 Anfragen je Stunde, gezählt in `auth_attempts`, danach 429
+- pro Konto höchstens 3 Links in 15 Minuten; weitere werden **still** nicht verschickt,
+  die Antwort bleibt gleich
+- SMTP-Fehler werden abgefangen und geloggt, die Antwort bleibt 200; PHPMailer-Timeout 10 s
+- Mindestantwortzeit 1,5 s für bekannte und unbekannte Adressen
+
+Die Grenzwerte sind Konstanten im `AuthController`. Die Integrationstests setzen
+kleinere Werte über `magic_link_*`-Schlüssel ihrer Test-Konfiguration. Das Frontend
+übersetzt 429/400 über `Api.magicLinkErrorText()` ins Deutsche.
+
 **Garbage Collection** läuft probabilistisch: bei 2 % aller Magic-Link-Requests werden
-abgelaufene Tokens und Sessions gelöscht (`AuthController::maybeRunGc`). Das ersetzt
+abgelaufene Tokens und Sessions sowie `auth_attempts` älter als ein Tag gelöscht
+(`AuthController::maybeRunGc`). Das ersetzt
 den Cronjob, den Shared Hosting nicht bietet – nicht durch einen SQL-Event ersetzen.
 
 **User-Anlage nur durch Admins.** Es gibt keine Selbstregistrierung. Der Initial-Admin
@@ -300,8 +429,10 @@ Schlüssel-Constraint: `UNIQUE (user_id, country_code, region_code)` auf `visits
 `RegionController::addVisit` prüft zusätzlich vorher und gibt 409 zurück.
 
 Schema-Änderungen gehen in `database.sql`. Es gibt **kein Migrationstool** – bestehende
-Instanzen werden über auskommentierte `ALTER TABLE`-Blöcke am Dateiende versorgt
-(siehe `last_seen_at`). Diesem Muster folgen.
+Instanzen werden über auskommentierte `ALTER TABLE`-/`UPDATE`-Blöcke am Dateiende
+versorgt (siehe `last_seen_at`, Token-Hashing). Diesem Muster folgen. Die
+Integrationstests bauen ihr Schema aus derselben Datei auf – eine Schema-Änderung
+ohne Eintrag in `database.sql` fällt dort sofort auf.
 
 ---
 
@@ -328,19 +459,11 @@ sie kommen weder über Git noch über den Deploy.
 
 Der Reihe nach, grob nach Relevanz:
 
-**CSRF-Schutz fehlt.** `project.md` §9 fordert ihn für schreibende Endpunkte; im Code
-existiert er nirgends. Abgesichert wird derzeit nur durch `SameSite=Lax` am Cookie –
-das deckt einfache Cross-Site-POSTs ab, ersetzt aber keine Token-Prüfung.
-
 **Keine CORS-Header.** Die API setzt bewusst kein `Access-Control-Allow-Origin` – das
 Frontend wird same-origin ausgeliefert. Ein Frontend auf anderer Origin (etwa eine
 API-Subdomain) funktioniert deshalb nicht ohne Anpassung.
 
 **Sessions laufen 365 Tage** (`SESSION_TTL_DAYS`), bewusst so entschieden.
-
-**`stats.js` liest `cc_is_admin`, geschrieben wird `cc_admin`** (`app.js:135`).
-Auf der Statistikseite ist das Admin-Flag deshalb immer `false`. Aktuell folgenlos,
-weil die Seite es nicht auswertet – bricht aber, sobald sie es tut.
 
 **`updateVisit` antwortet mit 404, wenn sich nichts geändert hat.** `rowCount()` liefert
 bei MySQL geänderte, nicht getroffene Zeilen. Speichert jemand unveränderte Werte
@@ -352,9 +475,10 @@ Vereinfachung auf 1,1 MB – das ist die `.bak`-Datei; die aktive Datei wurde sp
 gegen eine größere getauscht. Das kostet Ladezeit auf jeder Kartenseite und ist der
 naheliegendste Performance-Hebel.
 
-**Keine Tests für Controller oder Datenbank.** Abgedeckt sind `Request`, `Router` und
-`api.js` – also Routing- und URL-Mechanik. Auth-Flow, Guards, Visit-CRUD und
-Admin-Logik sind ungetestet.
+**Controller-Tests nur über HTTP.** Die Controller hängen am statischen
+`Database::get()` und beenden per `exit` – isolierte Unit-Tests sind deshalb nicht
+möglich. Abgedeckt werden sie über die Integrationstests (Autorisierung, Objektebene,
+Auth-Flow). Fachlogik wie Statistiken und Rangliste ist darüber hinaus nicht geprüft.
 
 ---
 

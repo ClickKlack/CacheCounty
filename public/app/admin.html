@@ -2,13 +2,22 @@
 <html lang="de" class="admin-page">
 <head>
   <meta charset="UTF-8">
+  <!-- Content-Security-Policy: nur eigene Skripte, Schriften und API; Kacheln von OSM.
+       'unsafe-inline' bei Styles wegen style="…" in HTML und innerHTML-Templates.
+       frame-ancestors wirkt nur als HTTP-Header (public/.htaccess). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base href="/app/">
-  <title>CacheCounty – Admin</title>
+  <title>Admin – CacheCounty</title>
+  <meta name="robots" content="noindex, nofollow">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#3a2e1f">
+
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
 
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -29,7 +38,8 @@
     </div>
   </header>
 
-  <main class="admin-main">
+  <!-- Erst sichtbar, wenn /me die Admin-Rolle bestätigt hat (admin.js) -->
+  <main id="admin-main" class="admin-main" hidden>
     <div class="admin-container">
 
       <div class="admin-section-header">
@@ -115,6 +125,7 @@
   <div id="backdrop" class="backdrop hidden"></div>
 
   <script src="js/api.js"></script>
+  <script src="js/auth-menu.js"></script>
   <script src="js/admin.js"></script>
 </body>
 </html>

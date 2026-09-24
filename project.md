@@ -69,7 +69,7 @@ Strikte Trennung von Frontend und Backend über eine REST-API.
 
 - Interaktive Karte mit Landkreis-Umrissen (Leaflet.js + GeoJSON)
 - Besuchte Landkreise farblich hervorgehoben (grün), nicht besuchte neutral/grau
-- Landesumriss als separater Layer (turf.js dissolve), immer sichtbar unabhängig von Bundesland-Sichtbarkeit
+- Landesumriss als separater Layer (Außenkanten aller Regionen, `outline.js`), immer sichtbar unabhängig von Bundesland-Sichtbarkeit
 - Länderauswahl über eine Selectbox (nur konfigurierte Länder)
 - Statistik-Anzeige gesamt: z. B. „42 von 401 Landkreisen besucht" – immer über alle Bundesländer, unabhängig von der Panel-Auswahl
 - Kein Login erforderlich zum Betrachten
@@ -273,6 +273,7 @@ Datei: `/config/countries.json`
     "geojson": "data/de_landkreise.geojson",
     "region_name_property": "GEN",
     "region_code_property": "AGS",
+    "region_code_pattern": "^[0-9]{5}$",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
   }
@@ -285,11 +286,13 @@ Felder je Land:
 |------------------------|---------|-------------------------------------------------------------------|
 | `code`                 | ✅      | ISO 3166-1 Alpha-2                                                |
 | `label`                | ✅      | Anzeigename in der Länder-Selectbox                               |
+| `pinned`               | –       | `true` = steht immer vorn (heute Deutschland). Alle übrigen Länder werden alphabetisch nach `label` sortiert; das erste Land ist die Voreinstellung |
 | `state_label`          | ✅      | Singular-Bezeichnung der übergeordneten Einheit (z. B. „Bundesland") |
 | `state_label_plural`   | –       | Plural-Form (z. B. „Bundesländer") – wird für Meilenstein-Texte verwendet |
-| `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Projektstamm                   |
+| `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Docroot (`public/`)            |
 | `region_name_property` | ✅      | GeoJSON-Property für den Landkreisnamen                           |
 | `region_code_property` | ✅      | GeoJSON-Property für den Landkreis-Code (eindeutig)               |
+| `region_code_pattern`  | –       | Regex für gültige Landkreis-Codes, z. B. `^[0-9]{5}$` (AGS). Die API lehnt Besuche mit abweichendem Code ab. Ohne Angabe gilt nur eine Längengrenze von 20 Zeichen |
 | `state_name_property`  | ✅      | GeoJSON-Property für den Bundesland-Namen                         |
 | `state_code_property`  | ✅      | GeoJSON-Property für den Bundesland-Code (Gruppierungsschlüssel)  |
 
@@ -301,7 +304,7 @@ Felder je Land:
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Performance        | GeoJSON ggf. vereinfacht (z. B. via Mapshaper) für schnelle Ladezeiten                                                                                                 |
 | Responsive Design  | Mobile-freundlich; Bundesland-Panel als Bottom-Drawer auf kleinen Screens                                                                                               |
-| Sicherheit         | CSRF-Schutz auf schreibenden Endpunkten                                                                                                                                 |
+| Sicherheit         | CSRF-Schutz auf schreibenden Endpunkten: Origin-Prüfung (Sec-Fetch-Site/Origin) und JSON-Pflicht im Router                                                                                                                                 |
 | Sicherheit         | Magic Links nach Nutzung sofort invalidiert                                                                                                                             |
 | Sicherheit         | Sessions serverseitig gespeichert (kein JWT)                                                                                                                            |
 | Wartbarkeit        | Abgelaufene Magic Links und Sessions werden in der Applikation bereinigt (kein SQL-Event/Cron): probabilistisch bei jedem `POST /api/auth/magic-link` mit 2 % Wahrscheinlichkeit |

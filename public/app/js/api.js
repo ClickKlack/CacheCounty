@@ -7,18 +7,24 @@ const API_BASE = '/api'; // adjust if API lives on a subdomain
 
 const Api = (() => {
 
+  // Die Session steckt ausschließlich im HttpOnly-Cookie cc_session – JavaScript
+  // sieht den Token nie. Frühere Versionen spiegelten ihn in sessionStorage;
+  // diese Reste werden beim Laden entfernt.
+  try {
+    ['cc_token', 'cc_username', 'cc_admin', 'cc_is_admin'].forEach(k => sessionStorage.removeItem(k));
+  } catch (_) { /* sessionStorage nicht verfügbar – nichts zu tun */ }
+
+  // Wird bei 401 aufgerufen (Session abgelaufen oder beendet), damit die Seite
+  // auf „abgemeldet" umschalten kann. /auth/me und /auth/verify sind ausgenommen:
+  // Dort ist 401 eine normale Antwort („nicht eingeloggt" bzw. „Link ungültig").
+  let unauthorizedHandler = null;
+  const NO_UNAUTHORIZED_HANDLER = ['/auth/me', '/auth/verify'];
+
   async function request(method, path, body = null) {
-    const headers = { 'Content-Type': 'application/json' };
-
-    // Session token from cookie is sent automatically via credentials.
-    // For non-cookie environments the token is stored in sessionStorage.
-    const token = sessionStorage.getItem('cc_token');
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
     const opts = {
       method,
-      headers,
-      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
     };
 
     if (body !== null) opts.body = JSON.stringify(body);
@@ -31,22 +37,40 @@ const Api = (() => {
     } catch (_) {
       // Keine JSON-Antwort – meist eine HTML-Fehlerseite, etwa wenn der
       // PHP-Server hinter dem Dev-Proxy nicht läuft oder mod_rewrite fehlt.
-      throw new Error(`Die API hat kein JSON geliefert (HTTP ${res.status}). Läuft der PHP-Server?`);
+      const err = new Error(`Die API hat kein JSON geliefert (HTTP ${res.status}). Läuft der PHP-Server?`);
+      err.status = res.status;
+      throw err;
     }
 
     if (!res.ok) {
-      throw new Error(data.error || 'Unbekannter Fehler');
+      if (res.status === 401 && unauthorizedHandler && !NO_UNAUTHORIZED_HANDLER.includes(path)) {
+        unauthorizedHandler();
+      }
+      const err = new Error(data.error || 'Unbekannter Fehler');
+      err.status = res.status;
+      throw err;
     }
 
     return data.data ?? data;
   }
 
+  // Deutsche Meldung für Fehler beim Anfordern eines Magic Links
+  function magicLinkErrorText(err) {
+    if (err.status === 429) return 'Zu viele Anfragen. Bitte versuche es später erneut.';
+    if (err.status === 400) return 'Bitte gib eine gültige E-Mail-Adresse ein.';
+    return err.message;
+  }
+
   return {
+    setUnauthorizedHandler: (fn) => { unauthorizedHandler = fn; },
+    magicLinkErrorText,
+
     // ── Auth ──────────────────────────────────────────────
     sendMagicLink: (email)  => request('POST', '/auth/magic-link', { email }),
-    verifyToken:   (token)  => request('GET',  '/auth/verify?token=' + encodeURIComponent(token)),
+    verifyToken:   (token)  => request('POST', '/auth/verify', { token }),
     me:            ()       => request('GET',  '/auth/me'),
     logout:        ()       => request('POST', '/auth/logout'),
+    logoutAll:     ()       => request('POST', '/auth/logout-all'),
 
     // ── Public ────────────────────────────────────────────
     getCountries:  ()                    => request('GET', '/countries'),

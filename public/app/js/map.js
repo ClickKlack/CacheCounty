@@ -74,7 +74,8 @@ const CacheMap = (() => {
         btn.title       = 'Auf Geocaching.com ansehen';
         btn.target      = '_blank';
         btn.rel         = 'noopener';
-        btn.innerHTML   = '<img src="https://www.geocaching.com/favicon.ico" width="19" height="19" alt="GC" style="display:block;margin:auto;">';
+        // Favicon von geocaching.com (32×32), lokal abgelegt – keine Anfrage an Fremdserver
+        btn.innerHTML   = '<img src="img/gc.png" width="19" height="19" alt="GC" style="display:block;margin:auto;">';
         btn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:background 0.15s,transform 0.1s;';
         L.DomEvent.on(btn, 'mouseover', () => { btn.style.background = '#f4f4f4'; btn.style.transform = 'scale(1.12)'; });
         L.DomEvent.on(btn, 'mouseout',  () => { btn.style.background = '';        btn.style.transform = ''; });
@@ -193,29 +194,14 @@ const CacheMap = (() => {
       }
     });
 
-    // Draw always-visible country outline (dissolve all districts into one shape)
-    if (typeof turf !== 'undefined') {
-      try {
-        // Flatten MultiPolygon → individual Polygons (turf.dissolve only handles Polygon)
-        const polygons = [];
-        geojson.features.forEach(f => {
-          const g = f.geometry;
-          if (g.type === 'Polygon') {
-            polygons.push(turf.polygon(g.coordinates, { _c: '1' }));
-          } else if (g.type === 'MultiPolygon') {
-            g.coordinates.forEach(coords => polygons.push(turf.polygon(coords, { _c: '1' })));
-          }
-        });
-        const dissolved = turf.dissolve(turf.featureCollection(polygons), { propertyName: '_c' });
-        countryOutlineLayer = L.geoJSON(dissolved, {
-          style: { color: '#1a1a2e', weight: 2.5, opacity: 0.9, fillOpacity: 0 },
-          interactive: false,
-        }).addTo(map);
-      } catch (e) {
-        console.warn('Country outline konnte nicht berechnet werden:', e);
-      }
-    } else {
-      console.warn('turf.js nicht geladen – country outline nicht verfügbar');
+    // Immer sichtbarer Landesumriss (Außenkanten aller Regionen, siehe outline.js)
+    try {
+      countryOutlineLayer = L.geoJSON(CountryOutline.fromFeatures(geojson.features), {
+        style: { color: '#1a1a2e', weight: 2.5, opacity: 0.9, lineJoin: 'round' },
+        interactive: false,
+      }).addTo(map);
+    } catch (e) {
+      console.warn('Landesumriss konnte nicht berechnet werden:', e);
     }
 
     if (geoLayer.getLayers().length) {

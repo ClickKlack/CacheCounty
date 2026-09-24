@@ -37,6 +37,8 @@ Beide Dateien mit den eigenen Werten befüllen. Sie werden nicht versioniert.
 `app.local.php` – Basis-URL, E-Mail-Absender und SMTP-Zugangsdaten für den Magic-Link-Versand (PHPMailer).
 Beginnt `base_url` mit `https://`, wird das Session-Cookie mit `Secure` gesetzt.
 `trust_cloudflare` nur auf `true` setzen, wenn der Server ausschließlich über Cloudflare erreichbar ist.
+`allowed_origins` bleibt in Produktion leer. Schreibende Requests werden nur von der eigenen
+Origin (`base_url`) angenommen, Requests ohne `Origin`-Header (etwa per curl) werden abgelehnt.
 
 ### 3. Composer-Abhängigkeiten installieren
 
@@ -55,6 +57,10 @@ bleiben außerhalb und sind per HTTP nicht erreichbar.
 Benötigt werden Apache mit `mod_rewrite` und `AllowOverride` für `.htaccess`.
 Zeigt das Document Root versehentlich auf die Projektwurzel, leitet die dortige
 `.htaccess` alle Anfragen nach `public/` um.
+
+`base_url` in `app.local.php` muss die öffentliche Adresse sein – daraus baut `/sitemap.xml`
+ihre absoluten URLs. Der Sitemap-Eintrag in `public/robots.txt` nennt die Produktions-URL
+fest; bei einer anderen Domain dort anpassen.
 
 `public/.htaccess` setzt Security-Header (benötigt `mod_headers`). HSTS startet mit
 `max-age=300`. Läuft die Seite danach stabil über HTTPS, den Wert in
@@ -78,6 +84,8 @@ cachecounty/
 ├── public/                      ← Document Root
 │   ├── .htaccess                ← Rewrites für /api, /map, /stats
 │   ├── api/index.php            ← Entry Point der API
+│   ├── favicon.svg / .ico       ← Favicon, dazu Touch-Icons und site.webmanifest
+│   ├── robots.txt
 │   ├── app/                     ← Frontend (Leaflet.js, Vanilla JS)
 │   │   ├── index.html           ← Kartenansicht (/map/{username})
 │   │   ├── stats.html           ← Statistikseite (/stats/{username})
@@ -126,9 +134,10 @@ cachecounty/
 | GET    | /api/countries                    | –       |
 | GET    | /api/map/{username}               | –       |
 | POST   | /api/auth/magic-link              | –       |
-| GET    | /api/auth/verify?token=…          | –       |
+| POST   | /api/auth/verify                  | –       |
 | GET    | /api/auth/me                      | Session |
-| POST   | /api/auth/logout                  | Session |
+| POST   | /api/auth/logout                  | –       |
+| POST   | /api/auth/logout-all              | Session |
 | POST   | /api/regions/{code}/visit         | Session |
 | PUT    | /api/regions/{code}/visit         | Session |
 | DELETE | /api/regions/{code}/visit         | Session |
@@ -140,5 +149,62 @@ cachecounty/
 | DELETE | /api/admin/sessions/{token}       | Admin   |
 | GET    | /api/stats/{username}             | –       |
 | GET    | /api/leaderboard                  | –       |
+| GET    | /sitemap.xml                      | –       |
 
-Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`.
+Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`. Das Land muss in
+`config/countries.json` konfiguriert sein, der Regionsteil zum `region_code_pattern` des
+Landes passen. Sonst antwortet die API mit 400.
+
+**Bestandsdaten prüfen:** Besuche, die vor Einführung der Prüfung mit ungültigen Codes
+angelegt wurden, findet diese Abfrage. Bereinigt wird bewusst nicht automatisch:
+
+```sql
+SELECT u.username, v.country_code, v.region_code, v.created_at
+  FROM visits v JOIN users u ON u.id = v.user_id
+ WHERE NOT (   (v.country_code = 'DE' AND v.region_code REGEXP '^[0-9]{5}$')
+            OR (v.country_code = 'AT' AND v.region_code REGEXP '^[0-9]{3}$')
+            OR (v.country_code = 'CH' AND v.region_code REGEXP '^[0-9]{3,4}$')
+            OR (v.country_code = 'DK' AND v.region_code REGEXP '^[0-9]{4}$'));
+```
+
+---
+
+## Tests
+
+```bash
+npm test                                     # Vitest (Frontend)
+cd api && ./vendor/bin/phpunit               # PHPUnit: Unit- und Integrationstests
+cd api && ./vendor/bin/phpunit --testsuite unit   # nur Unit-Tests, ohne Datenbank
+```
+
+### Integrationstests
+
+Die Integrationstests rufen die echte API auf: Sie starten einen PHP-Dev-Server,
+bauen das Schema aus `database.sql` in einer **eigenen Testdatenbank** auf und prüfen
+unter anderem die Autorisierungs-Matrix (jede Route × jede Rolle). Ohne Testdatenbank
+werden sie übersprungen.
+
+Einmalig eine Testdatenbank anlegen. Der Name **muss auf `_test` enden**, sonst
+brechen die Tests ab, denn sie leeren vor jedem Test alle Tabellen:
+
+```sql
+CREATE DATABASE CacheCounty_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Dann mit Umgebungsvariablen starten:
+
+```bash
+export CACHECOUNTY_TEST_DB_NAME=CacheCounty_test
+export CACHECOUNTY_TEST_DB_HOST=localhost      # Standard: localhost
+export CACHECOUNTY_TEST_DB_USER=…
+export CACHECOUNTY_TEST_DB_PASS=…
+cd api && ./vendor/bin/phpunit
+```
+
+Die CI führt die Integrationstests mit einem MariaDB-Service-Container aus, auch für
+Pull Requests. Das Log des Test-Servers liegt unter
+`$TMPDIR/cachecounty-integration-server.log`.
+
+**Neue Route?** Jede Route aus `api/src/routes.php` braucht einen Eintrag in
+`api/tests/Integration/RouteMatrix.php` mit dem erwarteten Status je Rolle, sonst
+schlägt `RoutesCompletenessTest` fehl. Dieser Test läuft auch ohne Datenbank.

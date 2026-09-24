@@ -71,41 +71,28 @@ class RequestTest extends TestCase
         $this->assertSame('DE-09162', $this->req->param('code'));
     }
 
-    // ── bearerToken() ─────────────────────────────────────────────
-
-    public function test_bearerToken_extracts_from_header(): void
-    {
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer mytoken123';
-        $this->assertSame('mytoken123', $this->req->bearerToken());
-    }
-
-    public function test_bearerToken_returns_null_without_header(): void
-    {
-        $this->assertNull($this->req->bearerToken());
-    }
-
-    public function test_bearerToken_returns_null_for_non_bearer_scheme(): void
-    {
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Basic dXNlcjpwYXNz';
-        $this->assertNull($this->req->bearerToken());
-    }
-
     // ── sessionToken() ────────────────────────────────────────────
 
-    public function test_sessionToken_prefers_cookie_over_bearer(): void
+    public function test_sessionToken_reads_cookie(): void
     {
-        $_COOKIE['cc_session']         = 'cookie-token';
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer bearer-token';
+        $_COOKIE['cc_session'] = 'cookie-token';
         $this->assertSame('cookie-token', $this->req->sessionToken());
     }
 
-    public function test_sessionToken_falls_back_to_bearer(): void
+    public function test_sessionToken_ignores_bearer_header(): void
     {
+        // Nur das HttpOnly-Cookie zählt – ein Bearer-Header wird bewusst nicht akzeptiert
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer bearer-token';
-        $this->assertSame('bearer-token', $this->req->sessionToken());
+        $this->assertNull($this->req->sessionToken());
     }
 
-    public function test_sessionToken_returns_null_without_either(): void
+    public function test_sessionToken_returns_null_for_empty_cookie(): void
+    {
+        $_COOKIE['cc_session'] = '';
+        $this->assertNull($this->req->sessionToken());
+    }
+
+    public function test_sessionToken_returns_null_without_cookie(): void
     {
         $this->assertNull($this->req->sessionToken());
     }
@@ -145,8 +132,25 @@ class RequestTest extends TestCase
     public function test_ip_uses_x_forwarded_for_behind_local_proxy(): void
     {
         $_SERVER['REMOTE_ADDR']          = '127.0.0.1';           // private → behind proxy
-        $_SERVER['HTTP_X_FORWARDED_FOR'] = '10.0.0.1, 198.51.100.5'; // first public IP
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '10.0.0.1, 198.51.100.5'; // last public IP
         $this->assertSame('198.51.100.5', $this->req->ip());
+    }
+
+    public function test_ip_ignores_client_supplied_x_forwarded_for_prefix(): void
+    {
+        // Der Client schickt selbst "X-Forwarded-For: 6.6.6.6", der Proxy hängt die
+        // echte Adresse an – maßgeblich ist die vom Proxy angehängte (letzte)
+        $_SERVER['REMOTE_ADDR']          = '127.0.0.1';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '6.6.6.6, 203.0.113.7';
+        $this->assertSame('203.0.113.7', $this->req->ip());
+    }
+
+    public function test_ip_ignores_x_forwarded_for_without_local_proxy(): void
+    {
+        // Direkt verbunden (öffentliche REMOTE_ADDR): Header wird nicht beachtet
+        $_SERVER['REMOTE_ADDR']          = '203.0.113.10';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '6.6.6.6';
+        $this->assertSame('203.0.113.10', $this->req->ip());
     }
 
     public function test_ip_skips_private_x_forwarded_for_ips(): void

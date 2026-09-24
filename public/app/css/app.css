@@ -21,6 +21,11 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Für Screenreader und Suchmaschinen lesbar, optisch ausgeblendet */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.noscript-note { position: fixed; inset: var(--header-h) 0 auto 0; z-index: 2000; background: var(--cream); color: var(--ink); padding: 24px 20px; line-height: 1.6; box-shadow: var(--shadow-card); }
+.noscript-note p + p { margin-top: 10px; }
 html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--parchment); color: var(--ink); }
 
 #app-header { position: fixed; top: 0; left: 0; right: 0; z-index: 900; background: var(--bark); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
@@ -38,6 +43,27 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font-body); back
 .auth-user { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
 .auth-hint { font-size: 0.67rem; color: rgba(245,240,232,0.5); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 400; }
 .auth-name { font-size: 0.88rem; color: var(--cream); font-weight: 600; }
+
+/* Header-Aktionen: breit nebeneinander, schmaler als Hamburger-Menü (siehe @media unten).
+   Eigener Breakpoint: Mit bis zu fünf Einträgen (fremde Statistik als Admin) braucht die
+   Leiste gut 1050 px – der allgemeine Mobil-Breakpoint von 600 px reicht dafür nicht. */
+.auth-menu { display: flex; align-items: center; gap: 10px; }
+.auth-menu-user { display: none; }
+.auth-menu-toggle { display: none; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 1.3rem; line-height: 1; color: var(--cream); background: transparent; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 8px; cursor: pointer; }
+.auth-menu-toggle:hover, .auth-menu-toggle[aria-expanded="true"] { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+
+@media (max-width: 599px) {
+  .header-inner { padding: 0 12px; gap: 10px; }
+}
+
+@media (max-width: 1099px) {
+  #auth-area > .auth-user { display: none; }
+  .auth-menu-toggle { display: flex; }
+  .auth-menu { display: none; position: fixed; top: var(--header-h); right: 8px; z-index: 950; flex-direction: column; align-items: stretch; gap: 8px; min-width: 220px; padding: 14px; background: var(--bark); border-radius: 0 0 10px 10px; box-shadow: var(--shadow-card); }
+  .auth-menu.open { display: flex; }
+  .auth-menu .btn { width: 100%; text-align: center; padding: 11px 18px; }
+  .auth-menu-user { display: flex; flex-direction: column; line-height: 1.3; padding: 0 2px 10px; margin-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+}
 
 .stats-bar { height: var(--stats-h); background: var(--bark-mid); display: flex; align-items: center; padding: 0 20px; gap: 14px; font-size: 0.78rem; color: var(--parchment); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
 .stats-bar.hidden { display: none; }
@@ -233,7 +259,6 @@ body.stats-page { overflow: auto; height: auto; }
 .stats-hero-avatar { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: var(--moss); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--cream); }
 .stats-hero-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--cream); line-height: 1.1; }
 .stats-hero-sub { font-size: 0.8rem; color: rgba(245,240,232,0.55); margin-top: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
-.stats-hero-inner .btn-ghost { margin-left: auto; flex-shrink: 0; }
 
 /* Sections */
 .stats-section { max-width: 860px; margin: 0 auto; padding: 36px 20px 0; }
@@ -295,6 +320,5 @@ body.stats-page { overflow: auto; height: auto; }
 
 @media (max-width: 599px) {
   .stats-hero-inner { flex-wrap: wrap; }
-  .stats-hero-inner .btn-ghost { margin-left: 0; }
   .milestone-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }

@@ -3,7 +3,7 @@
  *
  * api.js exposes `Api` as a global via an IIFE.
  * We load it by evaluating the source in a context that provides
- * mocked `fetch` and `sessionStorage` globals.
+ * mocked `fetch` and `sessionStorage` globals (the latter only for the legacy cleanup).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -14,7 +14,7 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const apiSource = readFileSync(resolve(__dirname, '../public/app/js/api.js'), 'utf-8')
 
-function buildApi({ token = null, ok = true, status = 200, responseBody = { data: { ok: true } }, jsonThrows = false } = {}) {
+function buildApi({ ok = true, status = 200, responseBody = { data: { ok: true } }, jsonThrows = false } = {}) {
   const fetchMock = vi.fn().mockResolvedValue({
     ok,
     status,
@@ -24,7 +24,7 @@ function buildApi({ token = null, ok = true, status = 200, responseBody = { data
   })
 
   const sessionStorageMock = {
-    getItem: vi.fn().mockReturnValue(token),
+    removeItem: vi.fn(),
   }
 
   const ctx = {
@@ -76,6 +76,16 @@ describe('Api.logout', () => {
     await Api.logout()
     const { url, opts } = lastCall(fetchMock)
     expect(url).toBe('/api/auth/logout')
+    expect(opts.method).toBe('POST')
+  })
+})
+
+describe('Api.logoutAll', () => {
+  it('sends POST to /api/auth/logout-all', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.logoutAll()
+    const { url, opts } = lastCall(fetchMock)
+    expect(url).toBe('/api/auth/logout-all')
     expect(opts.method).toBe('POST')
   })
 })
@@ -223,21 +233,96 @@ describe('Api.deleteSession', () => {
   })
 })
 
-// ── Authorization header ───────────────────────────────────────────────────
+// ── Cookie-Authentifizierung ───────────────────────────────────────────────
 
-describe('Authorization header', () => {
-  it('adds Bearer token from sessionStorage when present', async () => {
-    const { Api, fetchMock } = buildApi({ token: 'my-secret-token' })
-    await Api.getCountries()
-    const { opts } = lastCall(fetchMock)
-    expect(opts.headers['Authorization']).toBe('Bearer my-secret-token')
-  })
-
-  it('omits Authorization header when no token in sessionStorage', async () => {
-    const { Api, fetchMock } = buildApi({ token: null })
+describe('Cookie authentication', () => {
+  it('never sends an Authorization header', async () => {
+    const { Api, fetchMock } = buildApi()
     await Api.getCountries()
     const { opts } = lastCall(fetchMock)
     expect(opts.headers['Authorization']).toBeUndefined()
+  })
+
+  it('sends the session cookie for same-origin requests only', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.me()
+    expect(lastCall(fetchMock).opts.credentials).toBe('same-origin')
+  })
+
+  it('removes legacy session data from sessionStorage on load', () => {
+    const { sessionStorageMock } = buildApi()
+    const removed = sessionStorageMock.removeItem.mock.calls.map(c => c[0])
+    expect(removed).toEqual(expect.arrayContaining(['cc_token', 'cc_username', 'cc_admin', 'cc_is_admin']))
+  })
+})
+
+describe('Api.verifyToken', () => {
+  it('sends POST to /api/auth/verify with the token in the body, not the URL', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.verifyToken('abc123')
+    const { url, opts } = lastCall(fetchMock)
+    expect(url).toBe('/api/auth/verify')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body)).toEqual({ token: 'abc123' })
+  })
+})
+
+// ── Fehlermeldungen Magic Link ─────────────────────────────────────────────
+
+describe('Api.magicLinkErrorText', () => {
+  const { Api } = buildApi()
+
+  it('explains the rate limit in German', () => {
+    const err = Object.assign(new Error('Too many requests.'), { status: 429 })
+    expect(Api.magicLinkErrorText(err)).toBe('Zu viele Anfragen. Bitte versuche es später erneut.')
+  })
+
+  it('explains an invalid address in German', () => {
+    const err = Object.assign(new Error('Invalid e-mail address.'), { status: 400 })
+    expect(Api.magicLinkErrorText(err)).toBe('Bitte gib eine gültige E-Mail-Adresse ein.')
+  })
+
+  it('passes other messages through (e.g. the German "no JSON" hint)', () => {
+    const err = Object.assign(new Error('Die API hat kein JSON geliefert (HTTP 502). Läuft der PHP-Server?'), { status: 502 })
+    expect(Api.magicLinkErrorText(err)).toContain('Läuft der PHP-Server?')
+  })
+})
+
+// ── 401-Behandlung ─────────────────────────────────────────────────────────
+
+describe('Unauthorized handler', () => {
+  const unauthorized = { ok: false, status: 401, responseBody: { success: false, error: 'Unauthorized' } }
+
+  it('is called on 401 for regular requests', async () => {
+    const { Api } = buildApi(unauthorized)
+    const handler = vi.fn()
+    Api.setUnauthorizedHandler(handler)
+    await expect(Api.addVisit('DE-09162', {})).rejects.toThrow('Unauthorized')
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('is not called for /auth/me (401 just means "not logged in")', async () => {
+    const { Api } = buildApi(unauthorized)
+    const handler = vi.fn()
+    Api.setUnauthorizedHandler(handler)
+    await expect(Api.me()).rejects.toThrow()
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('is not called for /auth/verify (401 means "link invalid")', async () => {
+    const { Api } = buildApi(unauthorized)
+    const handler = vi.fn()
+    Api.setUnauthorizedHandler(handler)
+    await expect(Api.verifyToken('x')).rejects.toThrow()
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('is not called for other error codes', async () => {
+    const { Api } = buildApi({ ok: false, status: 403, responseBody: { error: 'Forbidden' } })
+    const handler = vi.fn()
+    Api.setUnauthorizedHandler(handler)
+    await expect(Api.listUsers()).rejects.toThrow('Forbidden')
+    expect(handler).not.toHaveBeenCalled()
   })
 })
 
@@ -258,6 +343,11 @@ describe('Error handling', () => {
       responseBody: {},
     })
     await expect(Api.me()).rejects.toThrow('Unbekannter Fehler')
+  })
+
+  it('exposes the HTTP status on the error', async () => {
+    const { Api } = buildApi({ ok: false, status: 429, responseBody: { error: 'Too many requests.' } })
+    await expect(Api.sendMagicLink('a@b.de')).rejects.toMatchObject({ status: 429 })
   })
 
   // Tritt auf, wenn hinter dem Dev-Proxy kein PHP-Server läuft und

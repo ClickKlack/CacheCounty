@@ -13,11 +13,12 @@ class Database
     public static function get(): PDO
     {
         if (self::$instance === null) {
-            // database.local.php overrides database.php (excluded from VCS)
-            $configFile = BASE_PATH . '/config/database.local.php';
+            // CACHECOUNTY_DB_CONFIG (integration tests) > database.local.php > database.php
+            $configFile = getenv('CACHECOUNTY_DB_CONFIG') ?: BASE_PATH . '/config/database.local.php';
             if (!file_exists($configFile)) {
                 $configFile = BASE_PATH . '/config/database.php';
-            }            $config = require $configFile;
+            }
+            $config = require $configFile;
 
             $dsn = sprintf(
                 'mysql:host=%s;dbname=%s;charset=utf8mb4',

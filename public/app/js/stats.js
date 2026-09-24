@@ -10,7 +10,7 @@
 
   const state = {
     username:       null,   // aus URL-Pfad
-    session:        null,   // { username, is_admin } | null
+    session:        null,   // { username, is_admin } | null – immer vom Server (/me)
     countries:      [],     // aus /api/countries
     currentCountry: null,   // aktuell gewähltes Land-Objekt
     statsData:      null,   // von /api/stats/{username}
@@ -28,7 +28,6 @@
     heroAvatar:       document.getElementById('hero-avatar'),
     heroTitle:        document.getElementById('hero-title'),
     heroSub:          document.getElementById('hero-sub'),
-    heroMapLink:      document.getElementById('hero-map-link'),
     countriesList:    document.getElementById('countries-list'),
     timelineChart:    document.getElementById('timeline-chart'),
     timelineHint:     document.getElementById('timeline-hint'),
@@ -58,7 +57,8 @@
     }
 
     setupAuthListeners();
-    restoreSession();
+    Api.setUnauthorizedHandler(() => { state.session = null; renderAuthArea(); });
+    await restoreSession();
     renderAuthArea();
 
     try {
@@ -90,6 +90,13 @@
 
   // ── Hilfsfunktionen ────────────────────────────────────────────────────────
 
+  // Für alles, was per innerHTML ins DOM kommt – auch Werte aus Konfiguration und GeoJSON
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function parseUsername() {
     const parts = location.pathname.split('/').filter(Boolean);
     // Erwartet: /stats/{username}
@@ -108,7 +115,7 @@
 
   function populateCountrySelect(countries) {
     els.countrySelect.innerHTML = countries
-      .map(c => `<option value="${c.code}">${c.label}</option>`)
+      .map(c => `<option value="${escHtml(c.code)}">${escHtml(c.label)}</option>`)
       .join('');
     els.countrySelect.addEventListener('change', () => {
       const c = state.countries.find(x => x.code === els.countrySelect.value);
@@ -176,7 +183,13 @@
     els.heroAvatar.textContent = initials;
     els.heroTitle.textContent  = username;
     els.heroSub.textContent    = 'Statistiken & Fortschritt';
-    els.heroMapLink.href       = '/map/' + encodeURIComponent(username);
+
+    PageMeta.set({
+      title:       `Statistiken von ${username} – CacheCounty`,
+      description: `Statistiken, Meilensteine und Ranglistenplatz von ${username} bei CacheCounty: ` +
+                   `besuchte Landkreise, Bezirke und Kommunen im Überblick.`,
+      path:        '/stats/' + encodeURIComponent(username),
+    });
   }
 
   // ── Ländervergleich ────────────────────────────────────────────────────────
@@ -192,9 +205,9 @@
     els.countriesList.innerHTML = countries.map(c => {
       const visited = byCode[c.code] || 0;
       return `
-        <div class="country-progress-item" data-country="${c.code}">
+        <div class="country-progress-item" data-country="${escHtml(c.code)}">
           <div class="country-progress-header">
-            <span class="country-progress-name">${c.label}</span>
+            <span class="country-progress-name">${escHtml(c.label)}</span>
             <span class="country-progress-count">${visited} besucht</span>
           </div>
           <div class="country-progress-bar-wrap">
@@ -372,7 +385,7 @@
       return `
         <div class="state-progress-item">
           <div class="state-progress-meta">
-            <span class="state-progress-name">${st.name}</span>
+            <span class="state-progress-name">${escHtml(st.name)}</span>
             <span class="state-progress-count">${visited} / ${st.total}</span>
           </div>
           <div class="state-progress-bar-wrap">
@@ -450,9 +463,9 @@
     return `
       <div class="milestone-card ${reached ? 'milestone-reached' : ''}">
         <div class="milestone-icon">${star}</div>
-        <div class="milestone-title">${title}</div>
-        <div class="milestone-label">${label}</div>
-        <div class="milestone-value">${value || '–'}</div>
+        <div class="milestone-title">${escHtml(title)}</div>
+        <div class="milestone-label">${escHtml(label)}</div>
+        <div class="milestone-value">${escHtml(value || '–')}</div>
       </div>`;
   }
 
@@ -486,7 +499,7 @@
         <tr class="${isSelf ? 'lb-self' : ''}">
           <td class="lb-rank">${rankIcon}</td>
           <td class="lb-user">
-            <a href="/map/${encodeURIComponent(r.username)}">${r.username}</a>
+            <a href="/map/${encodeURIComponent(r.username)}">${escHtml(r.username)}</a>
           </td>
           <td class="lb-count">${r.visited}</td>
         </tr>`;
@@ -495,35 +508,45 @@
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  function restoreSession() {
-    const token = sessionStorage.getItem('cc_token');
-    const uname = sessionStorage.getItem('cc_username');
-    const admin = sessionStorage.getItem('cc_is_admin');
-    if (token && uname) {
-      state.session = { username: uname, is_admin: admin === '1', token };
+  // Anmeldestatus und Rolle kommen immer vom Server – auch in einem neuen Tab
+  async function restoreSession() {
+    try {
+      state.session = await Api.me();
+    } catch (_) {
+      state.session = null;   // nicht eingeloggt
     }
   }
 
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js).
+  // Kartenlinks: die Karte des angezeigten Nutzers und – falls das eine fremde
+  // Statistik ist – zusätzlich die eigene.
   function renderAuthArea() {
+    const isOwnStats = state.session
+      && state.session.username.toLowerCase() === String(state.username).toLowerCase();
+    const viewedMap = { label: 'Karte von ' + state.username, href: '/map/' + encodeURIComponent(state.username) };
+
     if (state.session) {
-      els.authArea.innerHTML = `
-        <div class="auth-user">
-          <span class="auth-hint">Angemeldet als</span>
-          <span class="auth-name">${state.session.username}</span>
-        </div>
-        <button id="btn-logout" class="btn btn-ghost">Abmelden</button>`;
-      document.getElementById('btn-logout').addEventListener('click', logout);
+      AuthMenu.render(els.authArea, {
+        username: state.session.username,
+        items: [
+          ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
+          ...(isOwnStats ? [] : [viewedMap]),
+          { label: 'Meine Karte', href: '/map/' + encodeURIComponent(state.session.username) },
+          { label: 'Abmelden', onClick: () => logout(false) },
+          { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+            onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+        ],
+      });
     } else {
-      els.authArea.innerHTML = `<button id="btn-login" class="btn btn-ghost">Anmelden</button>`;
-      document.getElementById('btn-login').addEventListener('click', openLoginDialog);
+      AuthMenu.render(els.authArea, {
+        items: [viewedMap, { label: 'Anmelden', onClick: openLoginDialog }],
+      });
     }
   }
 
-  async function logout() {
-    try { await Api.logout(); } catch { /* ignorieren */ }
-    sessionStorage.removeItem('cc_token');
-    sessionStorage.removeItem('cc_username');
-    sessionStorage.removeItem('cc_is_admin');
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch { /* ignorieren */ }
     state.session = null;
     renderAuthArea();
   }
@@ -554,10 +577,11 @@
     try {
       await Api.sendMagicLink(email);
       els.loginMsg.style.display = '';
+      els.loginMsg.style.color   = '';
       els.loginMsg.textContent   = 'Link wurde gesendet – bitte E-Mail prüfen.';
     } catch (err) {
       els.loginMsg.style.display = '';
-      els.loginMsg.textContent   = err.message;
+      els.loginMsg.textContent   = Api.magicLinkErrorText(err);
       els.loginMsg.style.color   = 'var(--rust)';
     } finally {
       els.btnSendLink.disabled = false;
@@ -591,7 +615,7 @@
 
   function showError(msg) {
     document.getElementById('stats-main').innerHTML =
-      `<div class="stats-error"><p>${msg}</p><a href="/" class="btn btn-ghost">Zur Startseite</a></div>`;
+      `<div class="stats-error"><p>${escHtml(msg)}</p><a href="/" class="btn btn-ghost">Zur Startseite</a></div>`;
   }
 
   // ── Start ─────────────────────────────────────────────────────────────────

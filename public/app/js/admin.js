@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function escHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function formatDate(dateStr) {
@@ -56,26 +56,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Auth ──────────────────────────────────────────────────────
 
-  function restoreSession() {
-    const token    = sessionStorage.getItem('cc_token');
-    const username = sessionStorage.getItem('cc_username');
-    const isAdmin  = sessionStorage.getItem('cc_admin') === '1';
-    if (token && username) state.session = { token, username, is_admin: isAdmin };
+  // Kein Admin (mehr): Session abgelaufen (401) oder Rechte entzogen (403)
+  function leaveAdmin() {
+    location.href = 'index.html';
   }
 
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
   function renderAuthArea() {
-    els.authArea.innerHTML =
-      `<div class="auth-user">
-         <span class="auth-hint">Eingeloggt als</span>
-         <span class="auth-name">${escHtml(state.session.username)}</span>
-       </div>
-       <button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
-    $('btn-logout').addEventListener('click', logout);
+    AuthMenu.render(els.authArea, {
+      username: state.session.username,
+      items: [
+        { label: 'Zur Karte', href: 'index.html' },
+        { label: 'Abmelden', onClick: () => logout(false) },
+        { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+          onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+      ],
+    });
   }
 
-  async function logout() {
-    try { await Api.logout(); } catch (_) {}
-    sessionStorage.clear();
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch (_) {}
     location.href = 'index.html';
   }
 
@@ -86,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.users = await Api.listUsers();
       renderTable();
     } catch (e) {
+      if (e.status === 403) return leaveAdmin();
       showToast('Fehler beim Laden: ' + e.message, 'error');
     }
   }
@@ -191,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sessions = await Api.listSessions();
       renderSessions(sessions);
     } catch (e) {
+      if (e.status === 403) return leaveAdmin();
       showToast('Fehler beim Laden der Sessions: ' + e.message, 'error');
     }
   }
@@ -316,19 +319,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Boot ──────────────────────────────────────────────────────
 
   async function boot() {
-    restoreSession();
+    Api.setUnauthorizedHandler(leaveAdmin);
 
-    if (!state.session) {
-      try {
-        state.session = await Api.me();
-      } catch (_) {}
-    }
+    // Rolle immer vom Server – ein manipulierter Browser-Speicher zeigt nichts mehr an
+    try {
+      state.session = await Api.me();
+    } catch (_) { /* nicht eingeloggt */ }
 
     if (!state.session?.is_admin) {
-      location.href = 'index.html';
+      leaveAdmin();
       return;
     }
 
+    document.getElementById('admin-main').hidden = false;
     renderAuthArea();
     await Promise.all([loadUsers(), loadSessions()]);
   }
