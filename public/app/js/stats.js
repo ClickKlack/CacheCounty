@@ -10,6 +10,7 @@
 
   const state = {
     username:       null,   // aus URL-Pfad
+    urlCountry:     null,   // Ländercode aus der Adresse (/stats/{user}/{cc}) oder null
     session:        null,   // { username, is_admin } | null – immer vom Server (/me)
     countries:      [],     // aus /api/countries
     currentCountry: null,   // aktuell gewähltes Land-Objekt
@@ -50,7 +51,9 @@
   // ── Init ──────────────────────────────────────────────────────────────────
 
   async function init() {
-    state.username = parseUsername();
+    const route = AppRoutes.parse(location.pathname);
+    state.username   = route.user;
+    state.urlCountry = route.country;
     if (!state.username) {
       showError('Kein Nutzer angegeben.');
       return;
@@ -80,8 +83,11 @@
       renderCountryComparison(countries, statsData.total_by_country);
       renderTimeline(statsData.timeline, countries);
 
-      // Erstes Land laden (rendert auch Meilensteine)
-      await switchCountry(countries[0]);
+      // Land aus der Adresse, sonst das erste (rendert auch Meilensteine).
+      // Ein unbekanntes Land in der Adresse wird verworfen.
+      const fromUrl = countries.find(c => c.code === state.urlCountry);
+      if (!fromUrl) state.urlCountry = null;
+      await switchCountry(fromUrl || countries[0]);
 
     } catch (err) {
       showError('Statistiken konnten nicht geladen werden: ' + err.message);
@@ -97,17 +103,6 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function parseUsername() {
-    const parts = location.pathname.split('/').filter(Boolean);
-    // Erwartet: /stats/{username} – kodiert (z. B. %2A oder %20), deshalb dekodieren
-    if (parts[0] !== 'stats' || !parts[1]) return null;
-    try {
-      return decodeURIComponent(parts[1]);
-    } catch (_) {
-      return parts[1];   // ungültige Kodierung: unverändert übernehmen
-    }
-  }
-
   function buildVisitsIndex(_statsData) {
     // Wir haben keine region_code-Liste in statsData – nur Aggregat.
     // Für die Bundesland-Sektion brauchen wir /api/map, ODER wir nutzen
@@ -121,15 +116,22 @@
     els.countrySelect.innerHTML = countries
       .map(c => `<option value="${escHtml(c.code)}">${escHtml(c.label)}</option>`)
       .join('');
+    // Auswahl in die Adresse übernehmen (ohne neuen Verlaufseintrag), damit sich
+    // die Ansicht direkt teilen lässt
     els.countrySelect.addEventListener('change', () => {
       const c = state.countries.find(x => x.code === els.countrySelect.value);
-      if (c) switchCountry(c);
+      if (!c) return;
+      state.urlCountry = c.code;
+      history.replaceState(null, '', AppRoutes.statsPath(state.username, c.code));
+      switchCountry(c);
     });
   }
 
   async function switchCountry(country) {
     state.currentCountry = country;
     els.countrySelect.value = country.code;
+    updatePageMeta();
+    renderAuthArea();   // Kartenlinks zeigen aufs gewählte Land
 
     // Bundesland-Label im Heading anpassen
     els.stateLabelHeading.textContent  = country.state_label || 'Region';
@@ -187,12 +189,18 @@
     els.heroAvatar.textContent = initials;
     els.heroTitle.textContent  = username;
     els.heroSub.textContent    = 'Statistiken & Fortschritt';
+  }
 
+  // Titel, Beschreibung und canonical-URL (page-meta.js); ein Land in der Adresse
+  // gehört zu Titel und canonical
+  function updatePageMeta() {
+    const user  = state.username;
+    const label = state.urlCountry && state.currentCountry?.label;
     PageMeta.set({
-      title:       `Statistiken von ${username} – CacheCounty`,
-      description: `Statistiken, Meilensteine und Ranglistenplatz von ${username} bei CacheCounty: ` +
+      title:       `Statistiken von ${user}` + (label ? ` (${label})` : '') + ' – CacheCounty',
+      description: `Statistiken, Meilensteine und Ranglistenplatz von ${user} bei CacheCounty: ` +
                    `besuchte Landkreise, Bezirke und Kommunen im Überblick.`,
-      path:        '/stats/' + encodeURIComponent(username),
+      path:        AppRoutes.statsPath(user, state.urlCountry),
     });
   }
 
@@ -503,7 +511,7 @@
         <tr class="${isSelf ? 'lb-self' : ''}">
           <td class="lb-rank">${rankIcon}</td>
           <td class="lb-user">
-            <a href="/map/${encodeURIComponent(r.username)}">${escHtml(r.username)}</a>
+            <a href="${escHtml(AppRoutes.mapPath(r.username, state.lbCountry))}">${escHtml(r.username)}</a>
           </td>
           <td class="lb-count">${r.visited}</td>
         </tr>`;
@@ -527,7 +535,7 @@
   function renderAuthArea() {
     const isOwnStats = state.session
       && state.session.username.toLowerCase() === String(state.username).toLowerCase();
-    const viewedMap = { label: 'Karte von ' + state.username, href: '/map/' + encodeURIComponent(state.username) };
+    const viewedMap = { label: 'Karte von ' + state.username, href: AppRoutes.mapPath(state.username, state.urlCountry) };
 
     if (state.session) {
       AuthMenu.render(els.authArea, {
@@ -535,7 +543,7 @@
         items: [
           ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
           ...(isOwnStats ? [] : [viewedMap]),
-          { label: 'Meine Karte', href: '/map/' + encodeURIComponent(state.session.username) },
+          { label: 'Meine Karte', href: AppRoutes.mapPath(state.session.username, state.urlCountry) },
           { label: 'Abmelden', onClick: () => logout(false) },
           { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
             onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },

@@ -50,6 +50,7 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
     js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
     js/outline.js           Landesumriss aus den Regionsflächen (Leaflet-frei, testbar)
     js/page-meta.js         Titel, Beschreibung, canonical je Karte/Statistik (PageMeta.set)
+    js/routes.js            öffentliche Adressen lesen/bauen (AppRoutes, DOM-frei, testbar)
     vendor/                 Leaflet, Chart.js, Schriften – unverändert, siehe vendor/README.md
     img/gc.png              Symbol des Geocaching-Buttons (Favicon von geocaching.com, lokal)
     css/app.css             ein Stylesheet für alle drei Seiten
@@ -66,6 +67,7 @@ tests/api.test.js           Vitest für public/app/js/api.js
 tests/export.test.js        Vitest für public/app/js/export.js
 tests/auth-menu.test.js     Vitest für public/app/js/auth-menu.js (buildHtml)
 tests/outline.test.js       Vitest für public/app/js/outline.js
+tests/routes.test.js        Vitest für public/app/js/routes.js
 scripts/dev-router.php      Dev-Server-Router (bildet public/.htaccess nach)
 scripts/dev.sh              startet die lokale Entwicklungsumgebung
 scripts/dev.config.example.sh  Vorlage → scripts/dev.config.sh (gitignored)
@@ -87,8 +89,8 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 69 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 57 Unit- + 167 Integrationstests
+npm test                          # Vitest, 92 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 57 Unit- + 181 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -175,10 +177,22 @@ Adresse meist schlicht nicht in `users` angelegt – das ist kein Fehler.
 ## 4. Architekturprinzipien
 
 **Strikte Trennung Frontend/Backend.** Das Frontend spricht ausschließlich über
-`/api/*` mit dem Backend. Es gibt kein serverseitiges Rendering – `/map/{username}`
-und `/stats/{username}` liefern dieselben statischen HTML-Dateien aus; der Username
-wird clientseitig aus `location.pathname` geparst (`getPageUsername()` in `app.js`,
-`parseUsername()` in `stats.js`) – beide **dekodieren** den Namen.
+`/api/*` mit dem Backend. Es gibt kein serverseitiges Rendering. Die öffentlichen
+Adressen liefern statische HTML-Dateien:
+
+| Adresse | Seite |
+|---|---|
+| `/`, `/country/{cc}` | Karte (eigene, falls eingeloggt), optional Land |
+| `/map/{user}`, `/map/{user}/{cc}` | Karte eines Nutzers, optional Land |
+| `/stats/{user}`, `/stats/{user}/{cc}` | Statistik eines Nutzers, optional Land |
+
+Nutzer und Land liest `AppRoutes.parse()` (`routes.js`) aus `location.pathname`. Der
+Nutzer wird dekodiert, das Land groß geschrieben. Gebaut werden die Adressen nur mit
+`AppRoutes.mapPath()`/`statsPath()`, das Land steht dort klein. Wechselt man im Dropdown das
+Land, schreibt `history.replaceState` die Adresse um, ohne neuen Verlaufseintrag. Ein
+unbekanntes Land fällt auf das erste zurück. Die Rewrites stehen **doppelt**, in
+`public/.htaccess` und in `scripts/dev-router.php`; `PageRoutesTest` hält den Dev-Router
+aktuell, die `.htaccess` lässt sich nur mit Apache prüfen.
 
 **Nutzernamen folgen Geocaching-Namen** (z. B. `Ahnungslos*`, `Max Mustermann`, Umlaute).
 Erlaubt sind 2–60 sichtbare Zeichen außer `/` und `\` (`AdminController::createUser`).
