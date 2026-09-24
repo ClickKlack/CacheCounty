@@ -19,6 +19,8 @@ class Guard
             Response::unauthorized();
         }
 
+        $sessionId = Token::hash($token);
+
         $db   = Database::get();
         $stmt = $db->prepare(
             'SELECT s.user_id, u.username, u.is_admin
@@ -29,7 +31,7 @@ class Guard
                 AND u.is_active = 1
               LIMIT 1'
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$sessionId]);
         $user = $stmt->fetch();
 
         if (!$user) {
@@ -41,7 +43,7 @@ class Guard
             'UPDATE sessions SET last_seen_at = NOW()
               WHERE id = ?
                 AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL 5 MINUTE)'
-        )->execute([$token]);
+        )->execute([$sessionId]);
 
         return $user;
     }

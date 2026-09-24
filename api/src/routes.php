@@ -19,6 +19,7 @@ $router->post('/api/auth/magic-link',        [AuthController::class, 'requestMag
 $router->get('/api/auth/verify',             [AuthController::class, 'verifyToken']);
 $router->get('/api/auth/me',                 [AuthController::class, 'me']);
 $router->post('/api/auth/logout',            [AuthController::class, 'logout']);
+$router->post('/api/auth/logout-all',        [AuthController::class, 'logoutAll']);
 
 // --- Authenticated (User) ---
 $router->post('/api/regions/{code}/visit',   [RegionController::class, 'addVisit']);

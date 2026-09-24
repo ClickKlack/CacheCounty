@@ -55,6 +55,10 @@ final class RouteMatrix
             'POST /api/auth/logout' => [
                 'path' => '/api/auth/logout', 'body' => null, 'expect' => self::PUBLIC,
             ],
+            'POST /api/auth/logout-all' => [
+                'path' => '/api/auth/logout-all', 'body' => null,
+                'expect' => ['anon' => 401, 'user' => 200, 'inactive' => 401, 'admin' => 200],
+            ],
 
             // ── Besuche (nur eigene; der Admin hat keinen Besuch VISIT_A_CODE → 404) ──
             'POST /api/regions/{code}/visit' => [

@@ -90,6 +90,82 @@ class AuthFlowTest extends ApiTestCase
         $this->assertSame(401, $this->request('GET', '/api/auth/me', null, self::TOKEN_A)['status']);
     }
 
+    public function test_logout_all_ends_every_own_session_but_not_others(): void
+    {
+        $second = $this->createSession(
+            self::USER_A_ID,
+            'c000000000000000000000000000000000000000000000000000000000000002'
+        );
+
+        $this->assertSame(200, $this->request('POST', '/api/auth/logout-all', null, self::TOKEN_A)['status']);
+
+        $this->assertSame(401, $this->request('GET', '/api/auth/me', null, self::TOKEN_A)['status']);
+        $this->assertSame(401, $this->request('GET', '/api/auth/me', null, $second)['status']);
+        $this->assertSame(200, $this->request('GET', '/api/auth/me', null, self::TOKEN_B)['status']);
+    }
+
+    // ── Tokens nur als Hash gespeichert ──────────────────────────────────────
+
+    public function test_session_is_stored_as_hash_only(): void
+    {
+        $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
+        $response = $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN);
+
+        preg_match('/^Set-Cookie: cc_session=([0-9a-f]{64});/mi', $response['headers'], $m);
+        $rawCookie = $m[1];
+
+        $stored = $this->db()
+            ->query('SELECT id FROM sessions WHERE user_id = ' . self::USER_A_ID)
+            ->fetchAll(PDO::FETCH_COLUMN);
+
+        $this->assertNotContains($rawCookie, $stored, 'Roh-Token darf nicht in der DB stehen');
+        $this->assertContains(hash('sha256', $rawCookie), $stored);
+        $this->assertSame(200, $this->request('GET', '/api/auth/me', null, $rawCookie)['status']);
+    }
+
+    public function test_magic_link_is_stored_as_hash_only(): void
+    {
+        // Ein Link, dessen Roh-Token direkt in der DB steht, darf nicht funktionieren
+        $this->db()->prepare(
+            'INSERT INTO magic_links (user_id, token, expires_at) VALUES (?, ?, ?)'
+        )->execute([self::USER_A_ID, self::LINK_TOKEN, gmdate('Y-m-d H:i:s', strtotime('+15 minutes'))]);
+
+        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+    }
+
+    public function test_login_invalidates_other_unused_links(): void
+    {
+        $other = 'b000000000000000000000000000000000000000000000000000000000000002';
+        $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
+        $this->createMagicLink(self::USER_A_ID, $other);
+
+        $this->assertSame(200, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . $other)['status']);
+    }
+
+    // ── Admin-Sessionliste ───────────────────────────────────────────────────
+
+    public function test_session_list_ids_cannot_be_used_to_log_in(): void
+    {
+        $list = $this->request('GET', '/api/admin/sessions', null, self::TOKEN_ADMIN);
+        $this->assertSame(200, $list['status']);
+
+        $ids = array_column($list['body']['data'], 'id', 'username');
+        $this->assertSame(self::sessionId(self::TOKEN_B), $ids['userB']);
+
+        // Die gelistete Kennung als Cookie verwenden → abgelehnt
+        $this->assertSame(401, $this->request('GET', '/api/auth/me', null, $ids['userB'])['status']);
+    }
+
+    public function test_session_list_marks_current_session(): void
+    {
+        $list = $this->request('GET', '/api/admin/sessions', null, self::TOKEN_ADMIN);
+
+        $current = array_filter($list['body']['data'], fn($s) => $s['is_current']);
+        $this->assertCount(1, $current);
+        $this->assertSame('admin', array_values($current)[0]['username']);
+    }
+
     // ── Selbstschutz Admin ───────────────────────────────────────────────────
 
     public function test_admin_cannot_modify_own_account(): void

@@ -129,6 +129,7 @@ cachecounty/
 | GET    | /api/auth/verify?token=…          | –       |
 | GET    | /api/auth/me                      | Session |
 | POST   | /api/auth/logout                  | Session |
+| POST   | /api/auth/logout-all              | Session |
 | POST   | /api/regions/{code}/visit         | Session |
 | PUT    | /api/regions/{code}/visit         | Session |
 | DELETE | /api/regions/{code}/visit         | Session |

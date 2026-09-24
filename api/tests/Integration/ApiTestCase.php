@@ -215,7 +215,7 @@ abstract class ApiTestCase extends TestCase
     {
         self::$pdo->prepare(
             'INSERT INTO magic_links (user_id, token, expires_at) VALUES (?, ?, ?)'
-        )->execute([$userId, $rawToken, gmdate('Y-m-d H:i:s', strtotime($expires))]);
+        )->execute([$userId, hash('sha256', $rawToken), gmdate('Y-m-d H:i:s', strtotime($expires))]);
 
         return $rawToken;
     }
@@ -252,11 +252,11 @@ abstract class ApiTestCase extends TestCase
 
     /**
      * Kennung einer Session, wie sie in sessions.id steht und die Admin-Sessionliste
-     * liefert. Heute der Roh-Token selbst.
+     * liefert: der SHA-256-Hash des Roh-Tokens.
      */
     public static function sessionId(string $rawToken): string
     {
-        return $rawToken;
+        return hash('sha256', $rawToken);
     }
 
     public static function userBSessionId(): string

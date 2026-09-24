@@ -173,8 +173,13 @@ document.addEventListener('DOMContentLoaded', () => {
         (statsHref
           ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
           : '') +
-        `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
-      $('btn-logout')?.addEventListener('click', logout);
+        `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>` +
+        `<button id="btn-logout-all" class="btn btn-ghost" style="font-size:0.78rem"
+                 title="Beendet die Anmeldung auf allen Geräten und Browsern">Überall abmelden</button>`;
+      $('btn-logout')?.addEventListener('click', () => logout(false));
+      $('btn-logout-all')?.addEventListener('click', () => {
+        if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true);
+      });
     } else {
       els.authArea.innerHTML =
         (statsHref
@@ -185,8 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function logout() {
-    try { await Api.logout(); } catch (_) {}
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch (_) {}
     sessionStorage.clear();
     state.session = null;
     renderAuthArea();

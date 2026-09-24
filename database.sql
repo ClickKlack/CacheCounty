@@ -33,7 +33,7 @@ CREATE TABLE users (
 CREATE TABLE magic_links (
     id           INT UNSIGNED    NOT NULL AUTO_INCREMENT,
     user_id      INT UNSIGNED    NOT NULL,
-    token        CHAR(64)        NOT NULL,           -- SHA-256-Hex oder random_bytes(32) als Hex
+    token        CHAR(64)        NOT NULL,           -- SHA-256 des Tokens aus der Mail (nie der Token selbst)
     expires_at   DATETIME        NOT NULL,           -- z.B. NOW() + INTERVAL 15 MINUTE
     used_at      DATETIME            NULL DEFAULT NULL,
     ip_address   VARCHAR(45)         NULL DEFAULT NULL,  -- optional: zur Absicherung
@@ -82,7 +82,7 @@ CREATE TABLE visits (
 --  Serverseitige Sessions nach erfolgreichem Magic-Link-Login
 -- -------------------------------------------------------------
 CREATE TABLE sessions (
-    id            CHAR(64)        NOT NULL,           -- zufälliges Session-Token
+    id            CHAR(64)        NOT NULL,           -- SHA-256 des Session-Tokens aus dem Cookie
     user_id       INT UNSIGNED    NOT NULL,
     expires_at    DATETIME        NOT NULL,
     ip_address    VARCHAR(45)         NULL DEFAULT NULL,
@@ -145,7 +145,7 @@ VALUES ('admin', 'admin@example.com', 1, 1);
 --    IDX: user_id, country_code
 --
 --  sessions
---    PK:  id (Token selbst)
+--    PK:  id (SHA-256 des Tokens)
 --    FK:  user_id → users.id  (CASCADE DELETE)
 --    IDX: user_id, expires_at
 --
@@ -154,4 +154,14 @@ VALUES ('admin', 'admin@example.com', 1, 1);
 --  Migration: last_seen_at (auf bestehende Instanzen anwenden)
 -- =============================================================
 -- ALTER TABLE sessions ADD COLUMN last_seen_at DATETIME NULL DEFAULT NULL AFTER user_agent;
+-- =============================================================
+
+-- =============================================================
+--  Migration: Tokens nur noch als SHA-256 speichern
+--  Einmalig direkt nach dem Deploy ausführen, der die Hash-Logik
+--  einführt. Bestehende Logins und offene Magic Links bleiben
+--  gültig. NICHT zweimal ausführen – danach passt kein Token mehr.
+-- =============================================================
+-- UPDATE sessions    SET id    = SHA2(id, 256);
+-- UPDATE magic_links SET token = SHA2(token, 256);
 -- =============================================================

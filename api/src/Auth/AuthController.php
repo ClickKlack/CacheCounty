@@ -8,6 +8,7 @@ use CacheCounty\Shared\Database;
 use CacheCounty\Shared\Guard;
 use CacheCounty\Shared\Request;
 use CacheCounty\Shared\Response;
+use CacheCounty\Shared\Token;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 
@@ -46,13 +47,14 @@ class AuthController
 
         // Silently succeed even when the e-mail is unknown (no enumeration)
         if ($user) {
-            $token     = bin2hex(random_bytes(32)); // 64 hex chars
+            $token     = Token::generate();
             $expiresAt = gmdate('Y-m-d H:i:s', strtotime('+' . self::MAGIC_LINK_TTL_MIN . ' minutes'));
 
+            // Only the hash is stored; the raw token goes out by e-mail only
             $db->prepare(
                 'INSERT INTO magic_links (user_id, token, expires_at, ip_address)
                  VALUES (?, ?, ?, ?)'
-            )->execute([$user['id'], $token, $expiresAt, $request->ip()]);
+            )->execute([$user['id'], Token::hash($token), $expiresAt, $request->ip()]);
 
             $this->sendMagicLinkEmail($email, $token);
         }
@@ -78,7 +80,8 @@ class AuthController
             Response::error('Invalid token.');
         }
 
-        $db = Database::get();
+        $db        = Database::get();
+        $tokenHash = Token::hash($token);
 
         // Atomically mark token as used — only succeeds if valid, unexpired, unused and user active
         $stmt = $db->prepare(
@@ -90,7 +93,7 @@ class AuthController
                 AND ml.used_at IS NULL
                 AND u.is_active = 1'
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$tokenHash]);
 
         if ($stmt->rowCount() !== 1) {
             Response::error('Token is invalid, expired or has already been used.', 401);
@@ -104,18 +107,22 @@ class AuthController
               WHERE ml.token = ?
               LIMIT 1'
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$tokenHash]);
         $link = $stmt->fetch();
 
-        // Create session
-        $sessionId = bin2hex(random_bytes(32));
+        // Older, still unused links of this user become worthless after a successful login
+        $db->prepare('DELETE FROM magic_links WHERE user_id = ? AND used_at IS NULL')
+           ->execute([$link['user_id']]);
+
+        // Create session: the cookie carries the raw token, the database only its hash
+        $sessionId = Token::generate();
         $expiresAt = gmdate('Y-m-d H:i:s', strtotime('+' . self::SESSION_TTL_DAYS . ' days'));
 
         $db->prepare(
             'INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent)
              VALUES (?, ?, ?, ?, ?)'
         )->execute([
-            $sessionId,
+            Token::hash($sessionId),
             $link['user_id'],
             $expiresAt,
             $request->ip(),
@@ -165,13 +172,33 @@ class AuthController
         if ($token) {
             Database::get()
                 ->prepare('DELETE FROM sessions WHERE id = ?')
-                ->execute([$token]);
+                ->execute([Token::hash($token)]);
         }
 
         // Clear cookie
         setcookie('cc_session', '', $this->cookieOptions(time() - 3600));
 
         Response::ok(['message' => 'Logged out.']);
+    }
+
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /api/auth/logout-all
+     *
+     * Invalidates all sessions of the current user, on every device.
+     */
+    public function logoutAll(Request $request): void
+    {
+        $user = Guard::requireAuth($request);
+
+        Database::get()
+            ->prepare('DELETE FROM sessions WHERE user_id = ?')
+            ->execute([$user['user_id']]);
+
+        setcookie('cc_session', '', $this->cookieOptions(time() - 3600));
+
+        Response::ok(['message' => 'Logged out everywhere.']);
     }
 
     // -------------------------------------------------------------------------

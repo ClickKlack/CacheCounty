@@ -7,6 +7,7 @@ use CacheCounty\Shared\Database;
 use CacheCounty\Shared\Guard;
 use CacheCounty\Shared\Request;
 use CacheCounty\Shared\Response;
+use CacheCounty\Shared\Token;
 
 class AdminController
 {
@@ -176,12 +177,15 @@ class AdminController
      *
      * Returns all active (non-expired) sessions, joined with the owning user.
      * Marks the requesting admin's own session with is_current = true.
+     *
+     * The returned id is the stored token hash – it identifies the session for
+     * deleteSession() but cannot be used to log in.
      */
     public function listSessions(Request $request): void
     {
         Guard::requireAdmin($request);
 
-        $currentToken = $request->sessionToken();
+        $currentId = Token::hash((string) $request->sessionToken());
 
         $db   = Database::get();
         $stmt = $db->query(
@@ -193,7 +197,7 @@ class AdminController
               ORDER BY COALESCE(s.last_seen_at, s.created_at) DESC'
         );
 
-        $sessions = array_map(function (array $row) use ($currentToken): array {
+        $sessions = array_map(function (array $row) use ($currentId): array {
             return [
                 'id'           => $row['id'],
                 'username'     => $row['username'],
@@ -202,7 +206,7 @@ class AdminController
                 'created_at'   => $row['created_at'],
                 'last_seen_at' => $row['last_seen_at'],
                 'expires_at'   => $row['expires_at'],
-                'is_current'   => $row['id'] === $currentToken,
+                'is_current'   => $row['id'] === $currentId,
             ];
         }, $stmt->fetchAll());
 
@@ -214,21 +218,21 @@ class AdminController
     /**
      * DELETE /api/admin/sessions/{token}
      *
-     * Deletes a specific session by its token.
+     * Deletes a specific session by its id (the token hash from listSessions()).
      * Refuses to delete the requesting admin's own session.
      */
     public function deleteSession(Request $request): void
     {
         Guard::requireAdmin($request);
 
-        $currentToken = $request->sessionToken();
-        $token        = (string) $request->param('token');
+        $currentId = Token::hash((string) $request->sessionToken());
+        $token     = (string) $request->param('token');
 
         if (strlen($token) !== 64) {
             Response::error('Invalid session token.');
         }
 
-        if ($token === $currentToken) {
+        if ($token === $currentId) {
             Response::error('You cannot delete your own session.', 403);
         }
 

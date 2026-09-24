@@ -47,6 +47,7 @@ const Api = (() => {
     verifyToken:   (token)  => request('GET',  '/auth/verify?token=' + encodeURIComponent(token)),
     me:            ()       => request('GET',  '/auth/me'),
     logout:        ()       => request('POST', '/auth/logout'),
+    logoutAll:     ()       => request('POST', '/auth/logout-all'),
 
     // ── Public ────────────────────────────────────────────
     getCountries:  ()                    => request('GET', '/countries'),

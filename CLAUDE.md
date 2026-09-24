@@ -73,8 +73,8 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 44 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 31 Unit- + 85 Integrationstests
+npm test                          # Vitest, 45 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 31 Unit- + 95 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -177,8 +177,13 @@ bricht dieses Prinzip.
 + einen denormalisierten `region_name`. Gesamtzahlen („42 von 401") stammen immer aus
 dem GeoJSON, nie aus der DB.
 
-**Sessions sind serverseitig, kein JWT.** Token = 64 Hex-Zeichen, liegt als PK in
-`sessions`. Übertragung per HttpOnly-Cookie `cc_session` **oder** `Authorization: Bearer`
+**Sessions sind serverseitig, kein JWT.** Token = 64 Hex-Zeichen (`Token::generate()`).
+In der DB steht **nur der SHA-256-Hash** (`Token::hash()`), in `sessions.id` ebenso wie
+in `magic_links.token`. Der Roh-Token verlässt den Server genau einmal, per Cookie bzw.
+Mail. Wer Sessions oder Links in der DB sucht, muss also immer den Hash vergleichen.
+Die Admin-Sessionliste gibt den Hash als `id` aus; er taugt zum Beenden der Session,
+nicht zum Anmelden.
+Übertragung per HttpOnly-Cookie `cc_session` **oder** `Authorization: Bearer`
 (`Request::sessionToken()` prüft in dieser Reihenfolge). Das Frontend spiegelt den Token
 zusätzlich in `sessionStorage`, damit `api.js` den Bearer-Header setzen kann.
 
@@ -297,8 +302,12 @@ Guard-Klausel – ohne sie würde jeder Download das Bundesland mit umschalten.
 2. Link zeigt auf `{base_url}/app/?token=…`.
 3. `GET /api/auth/verify?token=…` – markiert das Token per einzelnem `UPDATE … JOIN`
    atomar als benutzt (`rowCount() === 1` ist die eigentliche Prüfung), legt eine Session
-   an und setzt das Cookie. Token ist danach verbrannt.
+   an und setzt das Cookie. Token ist danach verbrannt, weitere noch unbenutzte Links
+   desselben Nutzers werden gelöscht.
 4. `app.js::checkMagicLinkToken()` entfernt den Token per `history.replaceState` aus der URL.
+
+`POST /api/auth/logout` beendet die aktuelle Session, `POST /api/auth/logout-all` alle
+Sessions des Nutzers („Überall abmelden" in `app.js`).
 
 **Garbage Collection** läuft probabilistisch: bei 2 % aller Magic-Link-Requests werden
 abgelaufene Tokens und Sessions gelöscht (`AuthController::maybeRunGc`). Das ersetzt
@@ -319,8 +328,10 @@ Schlüssel-Constraint: `UNIQUE (user_id, country_code, region_code)` auf `visits
 `RegionController::addVisit` prüft zusätzlich vorher und gibt 409 zurück.
 
 Schema-Änderungen gehen in `database.sql`. Es gibt **kein Migrationstool** – bestehende
-Instanzen werden über auskommentierte `ALTER TABLE`-Blöcke am Dateiende versorgt
-(siehe `last_seen_at`). Diesem Muster folgen.
+Instanzen werden über auskommentierte `ALTER TABLE`-/`UPDATE`-Blöcke am Dateiende
+versorgt (siehe `last_seen_at`, Token-Hashing). Diesem Muster folgen. Die
+Integrationstests bauen ihr Schema aus derselben Datei auf – eine Schema-Änderung
+ohne Eintrag in `database.sql` fällt dort sofort auf.
 
 ---
 

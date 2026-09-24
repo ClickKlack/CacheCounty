@@ -80,6 +80,16 @@ describe('Api.logout', () => {
   })
 })
 
+describe('Api.logoutAll', () => {
+  it('sends POST to /api/auth/logout-all', async () => {
+    const { Api, fetchMock } = buildApi()
+    await Api.logoutAll()
+    const { url, opts } = lastCall(fetchMock)
+    expect(url).toBe('/api/auth/logout-all')
+    expect(opts.method).toBe('POST')
+  })
+})
+
 // ── Public ────────────────────────────────────────────────────────────────
 
 describe('Api.getCountries', () => {
