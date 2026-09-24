@@ -1,5 +1,5 @@
 /**
- * Tests for app/js/api.js
+ * Tests for public/app/js/api.js
  *
  * api.js exposes `Api` as a global via an IIFE.
  * We load it by evaluating the source in a context that provides
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const apiSource = readFileSync(resolve(__dirname, '../app/js/api.js'), 'utf-8')
+const apiSource = readFileSync(resolve(__dirname, '../public/app/js/api.js'), 'utf-8')
 
 function buildApi({ token = null, ok = true, status = 200, responseBody = { data: { ok: true } }, jsonThrows = false } = {}) {
   const fetchMock = vi.fn().mockResolvedValue({

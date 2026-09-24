@@ -1,0 +1,20 @@
+RewriteEngine On
+
+# Dieses Verzeichnis (public/) ist das Docroot. Alles außerhalb – api/src, api/config,
+# api/vendor, database.sql, Doku – ist vom Webserver aus nicht erreichbar.
+
+# ── API ───────────────────────────────────────────────────────────────────────
+# Route alle /api/* Anfragen an den PHP Front-Controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# ── Frontend-Routen ───────────────────────────────────────────────────────────
+# /map/{username} → app/index.html (Username wird von app.js aus der URL gelesen)
+RewriteRule ^map/[^/]+/?$ app/index.html [L]
+
+# /stats/{username} → app/stats.html
+RewriteRule ^stats/[^/]+/?$ app/stats.html [L]
+
+# Root → app/index.html
+RewriteRule ^$ app/index.html [L]

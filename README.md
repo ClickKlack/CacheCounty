@@ -45,17 +45,21 @@ composer install --optimize-autoloader
 
 ### 4. Document Root
 
-Den Webserver so konfigurieren, dass `api/public/` als Document Root der API dient.
-Beispiel für eine Subdomain `api.deine-domain.de → /pfad/zu/cachecounty/api/public/`.
+Den Webserver so konfigurieren, dass **`public/`** das Document Root ist
+(z. B. `deine-domain.de → /pfad/zu/cachecounty/public/`). Dort liegen Frontend,
+GeoJSON-Daten und der Einstiegspunkt der API. Quellcode, Konfiguration und `vendor/`
+bleiben außerhalb und sind per HTTP nicht erreichbar.
 
-Das Frontend (`app/`) liegt separat und kann direkt als statische Seite ausgeliefert werden.
+Benötigt werden Apache mit `mod_rewrite` und `AllowOverride` für `.htaccess`.
+Zeigt das Document Root versehentlich auf die Projektwurzel, leitet die dortige
+`.htaccess` alle Anfragen nach `public/` um.
 
 ### 5. GeoJSON-Daten
 
-GeoJSON-Dateien für DE und AT in `data/` ablegen:
+GeoJSON-Dateien für DE und AT in `public/data/` ablegen:
 
-- `data/de_landkreise.geojson` – Quelle: [Bundesamt für Kartographie](https://gdz.bkg.bund.de/)
-- `data/at_bezirke.geojson`   – Quelle: [data.gv.at](https://www.data.gv.at/)
+- `public/data/de_landkreise.geojson` – Quelle: [Bundesamt für Kartographie](https://gdz.bkg.bund.de/)
+- `public/data/at_bezirke.geojson`   – Quelle: [data.gv.at](https://www.data.gv.at/)
 
 GeoJSON-Dateien sind aus Lizenzgründen nicht im Repository enthalten.
 
@@ -65,14 +69,27 @@ GeoJSON-Dateien sind aus Lizenzgründen nicht im Repository enthalten.
 
 ```
 cachecounty/
-├── api/
+├── public/                      ← Document Root
+│   ├── .htaccess                ← Rewrites für /api, /map, /stats
+│   ├── api/index.php            ← Entry Point der API
+│   ├── app/                     ← Frontend (Leaflet.js, Vanilla JS)
+│   │   ├── index.html           ← Kartenansicht (/map/{username})
+│   │   ├── stats.html           ← Statistikseite (/stats/{username})
+│   │   ├── admin.html           ← Admin-Bereich
+│   │   ├── css/app.css
+│   │   └── js/
+│   │       ├── api.js           ← API-Wrapper
+│   │       ├── map.js           ← Leaflet-Karte & GeoJSON-Layer
+│   │       ├── export.js        ← GeoJSON-Export für c:geo
+│   │       ├── app.js           ← Kartenlogik
+│   │       ├── stats.js         ← Statistiklogik
+│   │       └── admin.js         ← Admin-Logik
+│   └── data/                    ← GeoJSON-Dateien (nicht versioniert)
+├── api/                         ← außerhalb des Document Root
 │   ├── composer.json
 │   ├── config/
 │   │   ├── app.php              ← Template (lokal: app.local.php)
 │   │   └── database.php         ← Template (lokal: database.local.php)
-│   ├── public/
-│   │   ├── .htaccess
-│   │   └── index.php            ← Entry Point
 │   └── src/
 │       ├── routes.php
 │       ├── Admin/AdminController.php
@@ -85,22 +102,13 @@ cachecounty/
 │           ├── Request.php
 │           ├── Response.php
 │           └── Router.php
-├── app/                         ← Frontend (Leaflet.js, Vanilla JS)
-│   ├── index.html               ← Kartenansicht (/map/{username})
-│   ├── stats.html               ← Statistikseite (/stats/{username})
-│   ├── admin.html               ← Admin-Bereich (/admin)
-│   ├── css/app.css
-│   └── js/
-│       ├── api.js               ← API-Wrapper
-│       ├── map.js               ← Leaflet-Karte & GeoJSON-Layer
-│       ├── export.js            ← GeoJSON-Export für c:geo
-│       ├── app.js               ← Kartenlogik
-│       ├── stats.js             ← Statistiklogik
-│       └── admin.js             ← Admin-Logik
 ├── config/
 │   └── countries.json           ← Länderkonfiguration
-├── data/                        ← GeoJSON-Dateien (nicht versioniert)
-└── router.php                   ← Dev-Server-Router (php -S localhost:8080 router.php)
+├── scripts/
+│   ├── dev.sh                   ← lokale Entwicklungsumgebung
+│   └── dev-router.php           ← Dev-Server-Router (php -S localhost:8080 -t public scripts/dev-router.php)
+├── .htaccess                    ← Sicherheitsnetz: leitet nach public/ um
+└── database.sql                 ← Schema
 ```
 
 ---

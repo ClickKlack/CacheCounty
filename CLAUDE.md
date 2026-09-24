@@ -32,31 +32,39 @@ funktionieren. Abhängigkeiten werden per CDN eingebunden, nicht gebündelt.
 ## 2. Verzeichnisstruktur
 
 ```
-api/                        REST-API (PHP)
-  public/index.php          Front-Controller: CORS, Exception-Handler, Dispatch
-  public/.htaccess          alles → index.php
+public/                     Docroot – nur was hier liegt, ist per HTTP erreichbar
+  .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
+  api/index.php             Front-Controller: CORS, Exception-Handler, Dispatch
+  app/                      Frontend (statisch, <base href="/app/">)
+    index.html              Kartenansicht      → js/api.js, js/map.js, js/export.js, js/app.js
+    stats.html              Statistikseite     → js/api.js, js/stats.js
+    admin.html              Adminbereich       → js/api.js, js/admin.js
+    js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
+    css/app.css             ein Stylesheet für alle drei Seiten
+  data/*.geojson            Geodaten – gitignored UND vom Deploy ausgeschlossen
+api/                        REST-API (PHP), außerhalb des Docroots
   src/routes.php            zentrale Routentabelle
   src/Shared/               Router, Request, Response, Database, Guard
   src/{Auth,Region,Admin,Stats}/*Controller.php
   config/{app,database}.php Templates; *.local.php überschreibt (gitignored)
   tests/                    PHPUnit (RequestTest, RouterTest)
-app/                        Frontend (statisch, <base href="/app/">)
-  index.html                Kartenansicht      → js/api.js, js/map.js, js/export.js, js/app.js
-  stats.html                Statistikseite     → js/api.js, js/stats.js
-  admin.html                Adminbereich       → js/api.js, js/admin.js
-  js/export.js              GeoJSON-Export für c:geo (Leaflet-frei, testbar)
-  css/app.css               ein Stylesheet für alle drei Seiten
 config/countries.json       Länderkonfiguration (Projektwurzel, nicht api/config/!)
-data/*.geojson              Geodaten – gitignored UND vom Deploy ausgeschlossen
-tests/api.test.js           Vitest für app/js/api.js
-tests/export.test.js        Vitest für app/js/export.js
-router.php                  Dev-Server-Router (gitignored, bildet .htaccess nach)
+tests/api.test.js           Vitest für public/app/js/api.js
+tests/export.test.js        Vitest für public/app/js/export.js
+scripts/dev-router.php      Dev-Server-Router (bildet public/.htaccess nach)
 scripts/dev.sh              startet die lokale Entwicklungsumgebung
 scripts/dev.config.example.sh  Vorlage → scripts/dev.config.sh (gitignored)
 scripts/.run/               PID, Port und Logs des Dev-Servers (gitignored)
 database.sql                Schema + Initial-Admin + Migrationshinweise
-.htaccess                   Produktiv-Rewrites für /api, /map/*, /stats/*
+.htaccess                   Sicherheitsnetz: leitet alles nach public/ um, falls der
+                            Webserver doch die Repo-Wurzel ausliefert
 ```
+
+**Docroot ist `public/`.** Alles, was der Browser nicht braucht – Quellcode,
+Konfiguration, `vendor/`, `database.sql`, Doku –, liegt außerhalb und ist per HTTP nicht
+erreichbar. Neue öffentliche Dateien gehören nach `public/`, alles andere nicht. Die
+öffentlichen URLs (`/app/…`, `/api/…`, `/map/…`, `/stats/…`, `/data/…`) haben sich mit der
+Umstellung nicht geändert.
 
 ---
 
@@ -94,8 +102,10 @@ liest das Skript aus `api/config/database.local.php`, damit es nur eine Quelle g
 
 Die beiden Modi im Detail:
 
-**A) `full`** – `php -S localhost:8080 router.php`. `router.php` bildet die
-`.htaccess`-Rewrites nach und bedient API, `/map/*` und `/stats/*`. Einfachster Weg.
+**A) `full`** – `php -S localhost:8080 -t public scripts/dev-router.php`. Der Router
+bildet die Rewrites aus `public/.htaccess` nach und bedient API, `/map/*` und `/stats/*`.
+Einfachster Weg. Der PHP-Dev-Server wertet `.htaccess` nicht aus – Änderungen an den
+Rewrites deshalb immer in beiden Dateien nachziehen.
 
 **B) `api`** – für VS Code Live Server (Hot Reload fürs Frontend).
 `.vscode/settings.json` legt Port 5500 fest und **proxyt `/api` auf
@@ -108,7 +118,7 @@ dahinter muss laufen, genau den startet dieser Modus.
 > „Die API hat kein JSON geliefert (HTTP …). Läuft der PHP-Server?".
 
 Variante B kennt `/map/{username}` nicht (Live Server liefert nur statische Dateien),
-sondern nur `http://localhost:5500/app/`. Ohne Username in der URL fällt `app.js` auf
+sondern nur `http://localhost:5500/app/` (Live-Server-Root ist `/public`). Ohne Username in der URL fällt `app.js` auf
 den eingeloggten Nutzer zurück – zum Testen fremder Karten Variante A nehmen.
 
 **Lokale Konfiguration:** `api/config/database.local.php` und `api/config/app.local.php`
@@ -138,7 +148,7 @@ wird clientseitig aus `location.pathname` geparst (`getPageUsername()` in `app.j
 `parseUsername()` in `stats.js`).
 
 **Neue Länder ohne Codeänderung.** Ein Land besteht aus einem Eintrag in
-`config/countries.json` plus einer GeoJSON-Datei in `data/`. Die Zuordnung
+`config/countries.json` plus einer GeoJSON-Datei in `public/data/`. Die Zuordnung
 Landkreis → Bundesland wird zur Laufzeit clientseitig aus den GeoJSON-Properties
 abgeleitet (`region_code_property`, `state_code_property` …) – es gibt bewusst
 **keine** Regionen-Tabelle in der Datenbank. Wer eine solche Tabelle einführen will,
@@ -292,12 +302,13 @@ Instanzen werden über auskommentierte `ALTER TABLE`-Blöcke am Dateiende versor
 2. **test** – PHPUnit + Vitest
 3. **deploy** – nur bei `workflow_dispatch` (manuell), rsync `--delete` per SSH
 
-Der Deploy-Job erzeugt `app/version.json` mit Commit-Hash und Build-Zeit; `app.js` hängt
+Der Deploy-Job erzeugt `public/app/version.json` mit Commit-Hash und Build-Zeit; `app.js` hängt
 den Wert an die Leaflet-Attribution an. Lokal existiert die Datei nicht – der Fetch
 schlägt bewusst still fehl.
 
-**rsync schließt aus:** `.git`, `.github`, `api/config/*.local.php`, `data/*.geojson`,
-`*.bak.*`. Konfiguration und Geodaten müssen also **einmalig manuell** auf den Server –
+**rsync schließt aus:** `.git`, `.github`, `.vscode`, `docs/`, `scripts/`, `tests/`,
+`api/config/*.local.php`, `public/data/*.geojson`, `*.bak.*`. Das Docroot auf dem Server
+ist `$DEPLOY_PATH/public`. Konfiguration und Geodaten müssen also **einmalig manuell** auf den Server –
 sie kommen weder über Git noch über den Deploy.
 
 ---
@@ -310,7 +321,7 @@ Der Reihe nach, grob nach Relevanz:
 existiert er nirgends. Abgesichert wird derzeit nur durch `SameSite=Lax` am Cookie –
 das deckt einfache Cross-Site-POSTs ab, ersetzt aber keine Token-Prüfung.
 
-**`Access-Control-Allow-Origin: *`** in `api/public/index.php` ist sehr weit gefasst.
+**`Access-Control-Allow-Origin: *`** in `public/api/index.php` ist sehr weit gefasst.
 Mit Wildcard blockiert der Browser zwar `credentials: 'include'`, der Bearer-Token-Pfad
 aus `sessionStorage` ist aber origin-gebunden und damit nicht betroffen. Beim
 Einschränken auf eine konkrete Origin daran denken, dass das Frontend heute
@@ -333,7 +344,7 @@ bei MySQL geänderte, nicht getroffene Zeilen. Speichert jemand unveränderte We
 innerhalb derselben Sekunde (`updated_at = NOW()`), meldet die API „Visit not found",
 obwohl der Besuch existiert.
 
-**`data/de_landkreise.geojson` ist 3,8 MB.** `project.md` Schritt 10 behauptet eine
+**`public/data/de_landkreise.geojson` ist 3,8 MB.** `project.md` Schritt 10 behauptet eine
 Vereinfachung auf 1,1 MB – das ist die `.bak`-Datei; die aktive Datei wurde später
 gegen eine größere getauscht. Das kostet Ladezeit auf jeder Kartenseite und ist der
 naheliegendste Performance-Hebel.

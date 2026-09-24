@@ -266,7 +266,7 @@ preflight() {
     local missing_geo=""
     while IFS= read -r file; do
         [ -z "$file" ] && continue
-        [ -f "$ROOT/$file" ] || missing_geo="$missing_geo $file"
+        [ -f "$ROOT/public/$file" ] || missing_geo="$missing_geo public/$file"
     done < <(cd "$ROOT" && "$PHP_BIN" -r '
         foreach (json_decode(file_get_contents("config/countries.json"), true) ?: [] as $c) {
             echo $c["geojson"] ?? "", "\n";
@@ -370,12 +370,12 @@ start_php() {
     if [ "$FOREGROUND" = 1 ]; then
         summary
         head1 "PHP läuft im Vordergrund – Strg+C beendet"
-        exec "$PHP_BIN" -S "$BIND_HOST:$PORT" -t "$ROOT" "$ROOT/router.php"
+        exec "$PHP_BIN" -S "$BIND_HOST:$PORT" -t "$ROOT/public" "$ROOT/scripts/dev-router.php"
     fi
 
     # 'exec' ersetzt die Subshell durch PHP – sonst bliebe ein Bash-Prozess
     # als Elternteil stehen und $! zeigte auf ihn statt auf den Server.
-    ( cd "$ROOT" && exec nohup "$PHP_BIN" -S "$BIND_HOST:$PORT" router.php \
+    ( cd "$ROOT" && exec nohup "$PHP_BIN" -S "$BIND_HOST:$PORT" -t public scripts/dev-router.php \
         > "$LOG_FILE" 2>&1 ) &
 
     if wait_for_port "$PORT" 50; then
