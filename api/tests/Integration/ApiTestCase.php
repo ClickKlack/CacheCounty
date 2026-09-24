@@ -267,7 +267,8 @@ abstract class ApiTestCase extends TestCase
     // ── HTTP ─────────────────────────────────────────────────────────────────
 
     /**
-     * Sendet einen Request an den Test-Server.
+     * Sendet einen Request an den Test-Server – wie ein Browser auf derselben Origin
+     * (Origin-Header = Server-URL, Body als JSON).
      *
      * @return array{status: int, body: ?array, headers: string}
      */
@@ -282,6 +283,23 @@ abstract class ApiTestCase extends TestCase
         if ($body !== null) {
             $headers[] = 'Content-Type: application/json';
         }
+
+        return $this->rawRequest($method, $path, $body === null ? null : json_encode($body), $headers, $token);
+    }
+
+    /**
+     * Request mit exakt den angegebenen Headern – für Tests, die fremde Origins
+     * oder falsche Content-Types nachstellen.
+     *
+     * @return array{status: int, body: ?array, headers: string}
+     */
+    protected function rawRequest(
+        string $method,
+        string $path,
+        ?string $rawBody,
+        array $headers,
+        ?string $token = null
+    ): array {
         if ($token !== null) {
             $headers[] = 'Cookie: cc_session=' . $token;
         }
@@ -292,10 +310,11 @@ abstract class ApiTestCase extends TestCase
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER         => true,
+            CURLOPT_NOBODY         => $method === 'HEAD',
             CURLOPT_TIMEOUT        => 10,
         ]);
-        if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        if ($rawBody !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $rawBody);
         }
 
         $response   = curl_exec($ch);
@@ -307,5 +326,10 @@ abstract class ApiTestCase extends TestCase
             'body'    => json_decode(substr($response, $headerSize), true),
             'headers' => substr($response, 0, $headerSize),
         ];
+    }
+
+    protected static function baseUrl(): string
+    {
+        return self::$baseUrl;
     }
 }

@@ -37,6 +37,8 @@ Beide Dateien mit den eigenen Werten befüllen. Sie werden nicht versioniert.
 `app.local.php` – Basis-URL, E-Mail-Absender und SMTP-Zugangsdaten für den Magic-Link-Versand (PHPMailer).
 Beginnt `base_url` mit `https://`, wird das Session-Cookie mit `Secure` gesetzt.
 `trust_cloudflare` nur auf `true` setzen, wenn der Server ausschließlich über Cloudflare erreichbar ist.
+`allowed_origins` bleibt in Produktion leer. Schreibende Requests werden nur von der eigenen
+Origin (`base_url`) angenommen, Requests ohne `Origin`-Header (etwa per curl) werden abgelehnt.
 
 ### 3. Composer-Abhängigkeiten installieren
 
@@ -128,7 +130,7 @@ cachecounty/
 | POST   | /api/auth/magic-link              | –       |
 | POST   | /api/auth/verify                  | –       |
 | GET    | /api/auth/me                      | Session |
-| POST   | /api/auth/logout                  | Session |
+| POST   | /api/auth/logout                  | –       |
 | POST   | /api/auth/logout-all              | Session |
 | POST   | /api/regions/{code}/visit         | Session |
 | PUT    | /api/regions/{code}/visit         | Session |

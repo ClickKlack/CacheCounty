@@ -14,6 +14,11 @@ class Guard
      */
     public static function requireAuth(Request $request): array
     {
+        // Already checked by the Router for this request – no second DB lookup
+        if ($request->user() !== null) {
+            return $request->user();
+        }
+
         $token = $request->sessionToken();
         if (!$token) {
             Response::unauthorized();
@@ -45,6 +50,7 @@ class Guard
                 AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL 5 MINUTE)'
         )->execute([$sessionId]);
 
+        $request->setUser($user);
         return $user;
     }
 

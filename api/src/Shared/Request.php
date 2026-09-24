@@ -7,6 +7,7 @@ class Request
 {
     private array  $params = [];
     private ?array $body   = null;
+    private ?array $user   = null;
 
     public function method(): string
     {
@@ -17,6 +18,21 @@ class Request
     {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         return rtrim($uri, '/') ?: '/';
+    }
+
+    /**
+     * Authenticated user, set by the Router/Guard once per request.
+     *
+     * @return array{user_id: int, username: string, is_admin: int}|null
+     */
+    public function user(): ?array
+    {
+        return $this->user;
+    }
+
+    public function setUser(array $user): void
+    {
+        $this->user = $user;
     }
 
     public function setParams(array $params): void

@@ -45,7 +45,7 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
   data/*.geojson            Geodaten – gitignored UND vom Deploy ausgeschlossen
 api/                        REST-API (PHP), außerhalb des Docroots
   src/routes.php            zentrale Routentabelle
-  src/Shared/               Router, Request, Response, Database, Guard
+  src/Shared/               Router, Access, OriginCheck, Guard, Request, Response, Database, Config, Token
   src/{Auth,Region,Admin,Stats}/*Controller.php
   config/{app,database}.php Templates; *.local.php überschreibt (gitignored)
   tests/                    PHPUnit: Unit-Tests (Request, Router, Routen-Vollständigkeit)
@@ -76,7 +76,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 59 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 29 Unit- + 98 Integrationstests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 48 Unit- + 107 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -210,10 +210,23 @@ Der Router instanziiert den Controller ohne Konstruktorargumente – **kein DI-C
 Nach einem `Response::`-Aufruf folgt nie weiterer Code. Format immer
 `{"success":bool,"data":…}` bzw. `{"success":false,"error":"…"}`.
 
-**Auth-Guards am Methodenanfang.** `Guard::requireAuth($request)` bzw.
-`Guard::requireAdmin($request)` als erste Zeile; Rückgabe ist
-`['user_id','username','is_admin']`. Es gibt keine Middleware-Schicht – wer den Guard
-vergisst, macht den Endpunkt öffentlich. **Bei jedem neuen schreibenden Endpunkt prüfen.**
+**Zugriffsstufe pro Route, geprüft im Router (Default-Deny).** Jede Registrierung in
+`routes.php` braucht als drittes Argument `Access::Public`, `Access::User` oder
+`Access::Admin`. Ohne diese Angabe scheitert sie sofort, es gibt keinen Standardwert.
+`Router::dispatch()` prüft die Stufe über `Guard`, **bevor** der Controller läuft, und
+legt den Nutzer in `$request->user()` ab. Die `Guard::`-Aufrufe am Anfang der
+Controller-Methoden bleiben als zweite Absicherung; sie lesen den Nutzer aus dem
+Request und fragen die DB nicht erneut. Rückgabe ist `['user_id','username','is_admin']`.
+
+**Origin-Prüfung für schreibende Requests (CSRF).** Vor jedem POST/PUT/PATCH/DELETE
+prüft `OriginCheck` im Router:
+- Der Request muss von der eigenen Origin kommen: `Sec-Fetch-Site: same-origin`, oder
+  `Origin` bzw. `Referer` passt zu `base_url` oder `allowed_origins`. Sonst 403.
+- Ein Body muss `application/json` sein, sonst 415.
+
+Requests ohne jede Herkunftsangabe (curl, Skripte) werden deshalb abgelehnt. Wer
+lokal per curl schreiben will, muss einen passenden `Origin`-Header mitschicken.
+`GET`/`HEAD` sind nicht betroffen. `HEAD` wird wie `GET` geroutet.
 
 **Routenreihenfolge zählt.** Der Router matcht in Registrierungsreihenfolge und
 ersetzt `{param}` durch `([^/]+)`. Deshalb steht `/api/leaderboard` in `routes.php`
@@ -379,10 +392,6 @@ sie kommen weder über Git noch über den Deploy.
 ## 10. Bekannte Schwachstellen und Stolperfallen
 
 Der Reihe nach, grob nach Relevanz:
-
-**CSRF-Schutz fehlt.** `project.md` §9 fordert ihn für schreibende Endpunkte; im Code
-existiert er nirgends. Abgesichert wird derzeit nur durch `SameSite=Lax` am Cookie –
-das deckt einfache Cross-Site-POSTs ab, ersetzt aber keine Token-Prüfung.
 
 **Keine CORS-Header.** Die API setzt bewusst kein `Access-Control-Allow-Origin` – das
 Frontend wird same-origin ausgeliefert. Ein Frontend auf anderer Origin (etwa eine

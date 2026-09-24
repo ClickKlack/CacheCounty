@@ -20,4 +20,9 @@ return [
     // Nur auf true setzen, wenn der Server ausschließlich über Cloudflare erreichbar ist.
     // Sonst kann jeder Client per CF-Connecting-IP-Header eine beliebige IP vortäuschen.
     'trust_cloudflare' => false,
+
+    // Weitere Origins, von denen schreibende Requests kommen dürfen (neben base_url).
+    // Nur nötig, wenn das Frontend lokal unter anderer Adresse läuft und der Browser
+    // kein Sec-Fetch-Site sendet, z. B. ['http://localhost:8080']. In Produktion leer.
+    'allowed_origins' => [],
 ];

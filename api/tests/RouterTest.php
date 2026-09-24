@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use CacheCounty\Shared\Access;
 use CacheCounty\Shared\Request;
 use CacheCounty\Shared\Router;
 use PHPUnit\Framework\TestCase;
@@ -28,16 +29,52 @@ class RouterTest extends TestCase
 
     private function makeRequest(string $method, string $uri): Request
     {
-        $_SERVER['REQUEST_METHOD'] = $method;
-        $_SERVER['REQUEST_URI']    = $uri;
+        // Schreibende Requests durchlaufen die Origin-Prüfung – wie ein Browser
+        // auf derselben Origin senden wir Sec-Fetch-Site: same-origin mit
+        $_SERVER = [
+            'REQUEST_METHOD'      => $method,
+            'REQUEST_URI'         => $uri,
+            'HTTP_SEC_FETCH_SITE' => 'same-origin',
+        ];
         return new Request();
+    }
+
+    public function test_route_without_access_level_cannot_be_registered(): void
+    {
+        $router = new Router($this->makeRequest('GET', '/'));
+
+        $this->expectException(ArgumentCountError::class);
+        $router->get('/api/neu', [TestController::class, 'handle']);
+    }
+
+    public function test_head_request_matches_get_route(): void
+    {
+        $req    = $this->makeRequest('HEAD', '/api/countries');
+        $router = new Router($req);
+        $router->get('/api/countries', [TestController::class, 'handle'], Access::Public);
+
+        $router->dispatch();
+
+        $this->assertNotNull(TestController::$capturedParams);
+    }
+
+    public function test_routes_expose_access_level(): void
+    {
+        $router = new Router($this->makeRequest('GET', '/'));
+        $router->get('/api/a', [TestController::class, 'handle'], Access::Public);
+        $router->post('/api/b', [TestController::class, 'handle'], Access::Admin);
+
+        $this->assertSame(
+            [Access::Public, Access::Admin],
+            array_column($router->routes(), 'access')
+        );
     }
 
     public function test_dispatch_calls_matching_get_route(): void
     {
         $req    = $this->makeRequest('GET', '/api/countries');
         $router = new Router($req);
-        $router->get('/api/countries', [TestController::class, 'handle']);
+        $router->get('/api/countries', [TestController::class, 'handle'], Access::Public);
 
         $router->dispatch();
 
@@ -48,7 +85,7 @@ class RouterTest extends TestCase
     {
         $req    = $this->makeRequest('GET', '/api/map/MaxMustermann');
         $router = new Router($req);
-        $router->get('/api/map/{username}', [TestController::class, 'handle']);
+        $router->get('/api/map/{username}', [TestController::class, 'handle'], Access::Public);
 
         $router->dispatch();
 
@@ -61,7 +98,7 @@ class RouterTest extends TestCase
         // This verifies that routes are stored per method without triggering exit.
         $req    = $this->makeRequest('GET', '/api/countries');
         $router = new Router($req);
-        $router->get('/api/countries', [TestController::class, 'handle']);
+        $router->get('/api/countries', [TestController::class, 'handle'], Access::Public);
         $router->dispatch();
 
         // Dispatched correctly; params were captured
@@ -73,7 +110,7 @@ class RouterTest extends TestCase
         TestController::$capturedParams = null;
         $req2    = $this->makeRequest('POST', '/api/countries');
         $router2 = new Router($req2);
-        $router2->post('/api/countries', [TestController::class, 'handle']);
+        $router2->post('/api/countries', [TestController::class, 'handle'], Access::Public);
         $router2->dispatch();
 
         $this->assertNotNull(TestController::$capturedParams);
@@ -83,7 +120,7 @@ class RouterTest extends TestCase
     {
         $req    = $this->makeRequest('DELETE', '/api/regions/DE-09162/visit');
         $router = new Router($req);
-        $router->delete('/api/regions/{code}/visit', [TestController::class, 'handle']);
+        $router->delete('/api/regions/{code}/visit', [TestController::class, 'handle'], Access::Public);
 
         $router->dispatch();
 
@@ -94,7 +131,7 @@ class RouterTest extends TestCase
     {
         $req    = $this->makeRequest('GET', '/api/stats/ClickKlack');
         $router = new Router($req);
-        $router->get('/api/stats/{username}', [TestController::class, 'handle']);
+        $router->get('/api/stats/{username}', [TestController::class, 'handle'], Access::Public);
 
         $router->dispatch();
 
@@ -106,8 +143,8 @@ class RouterTest extends TestCase
         // Leaderboard route must win over {username} wildcard when registered first
         $req    = $this->makeRequest('GET', '/api/leaderboard');
         $router = new Router($req);
-        $router->get('/api/leaderboard',       [TestController::class, 'handle']);
-        $router->get('/api/stats/{username}',  [TestController::class, 'handle']);
+        $router->get('/api/leaderboard',       [TestController::class, 'handle'], Access::Public);
+        $router->get('/api/stats/{username}',  [TestController::class, 'handle'], Access::Public);
 
         $router->dispatch();
 

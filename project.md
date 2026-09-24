@@ -301,7 +301,7 @@ Felder je Land:
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Performance        | GeoJSON ggf. vereinfacht (z. B. via Mapshaper) für schnelle Ladezeiten                                                                                                 |
 | Responsive Design  | Mobile-freundlich; Bundesland-Panel als Bottom-Drawer auf kleinen Screens                                                                                               |
-| Sicherheit         | CSRF-Schutz auf schreibenden Endpunkten                                                                                                                                 |
+| Sicherheit         | CSRF-Schutz auf schreibenden Endpunkten: Origin-Prüfung (Sec-Fetch-Site/Origin) und JSON-Pflicht im Router                                                                                                                                 |
 | Sicherheit         | Magic Links nach Nutzung sofort invalidiert                                                                                                                             |
 | Sicherheit         | Sessions serverseitig gespeichert (kein JWT)                                                                                                                            |
 | Wartbarkeit        | Abgelaufene Magic Links und Sessions werden in der Applikation bereinigt (kein SQL-Event/Cron): probabilistisch bei jedem `POST /api/auth/magic-link` mit 2 % Wahrscheinlichkeit |
