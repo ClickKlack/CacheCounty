@@ -9,6 +9,9 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
 
+# Sitemap wird von der API erzeugt
+RewriteRule ^sitemap\.xml$ api/index.php [QSA,L]
+
 # ── Frontend-Routen ───────────────────────────────────────────────────────────
 # /map/{username} → app/index.html (Username wird von app.js aus der URL gelesen)
 RewriteRule ^map/[^/]+/?$ app/index.html [L]
@@ -18,6 +21,12 @@ RewriteRule ^stats/[^/]+/?$ app/stats.html [L]
 
 # Root → app/index.html
 RewriteRule ^$ app/index.html [L]
+
+# ── MIME-Typen ────────────────────────────────────────────────────────────────
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+    AddType image/svg+xml .svg
+</IfModule>
 
 # ── Security-Header ───────────────────────────────────────────────────────────
 # Die vollständige Content-Security-Policy steht als <meta>-Tag in den HTML-Dateien;

@@ -5,6 +5,7 @@ use CacheCounty\Auth\AuthController;
 use CacheCounty\Region\RegionController;
 use CacheCounty\Admin\AdminController;
 use CacheCounty\Stats\StatsController;
+use CacheCounty\Seo\SitemapController;
 use CacheCounty\Shared\Access;
 
 // Jede Route braucht eine Zugriffsstufe (Access::Public|User|Admin) – ohne sie
@@ -18,6 +19,9 @@ $router->get('/api/map/{username}',          [RegionController::class, 'mapByUse
 // Stats: leaderboard vor {username} definieren, damit es nicht als Username gilt
 $router->get('/api/leaderboard',             [StatsController::class, 'leaderboard'],  Access::Public);
 $router->get('/api/stats/{username}',        [StatsController::class, 'userStats'],    Access::Public);
+
+// Sitemap für Suchmaschinen (per Rewrite unter /sitemap.xml erreichbar)
+$router->get('/sitemap.xml',                 [SitemapController::class, 'sitemap'],    Access::Public);
 
 // Login und Logout funktionieren ohne (gültige) Session
 $router->post('/api/auth/magic-link',        [AuthController::class, 'requestMagicLink'], Access::Public);

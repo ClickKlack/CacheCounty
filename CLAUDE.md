@@ -38,6 +38,10 @@ OSM-Kachelserver an.
 public/                     Docroot – nur was hier liegt, ist per HTTP erreichbar
   .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
   api/index.php             Front-Controller: API-Header, Exception-Handler, Dispatch
+  favicon.svg, favicon.ico  Favicon (◈ aus dem Logo); dazu apple-touch-icon.png, icon-192/512.png
+  site.webmanifest          Web-App-Manifest (Name, Farben, Icons)
+  robots.txt                sperrt nur /api/ – Admin-Seite nutzt noindex (muss lesbar bleiben);
+                            verweist auf die Sitemap (Produktions-URL fest eingetragen)
   app/                      Frontend (statisch, <base href="/app/">)
     index.html              Kartenansicht      → js/api.js, js/auth-menu.js, js/outline.js, js/map.js, js/export.js, js/app.js
     stats.html              Statistikseite     → js/api.js, js/auth-menu.js, js/stats.js
@@ -45,6 +49,7 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
     js/auth-menu.js         Header-Menü aller Seiten (Desktop-Leiste / Mobil-Hamburger)
     js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
     js/outline.js           Landesumriss aus den Regionsflächen (Leaflet-frei, testbar)
+    js/page-meta.js         Titel, Beschreibung, canonical je Karte/Statistik (PageMeta.set)
     vendor/                 Leaflet, Chart.js, Schriften – unverändert, siehe vendor/README.md
     img/gc.png              Symbol des Geocaching-Buttons (Favicon von geocaching.com, lokal)
     css/app.css             ein Stylesheet für alle drei Seiten
@@ -52,7 +57,7 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
 api/                        REST-API (PHP), außerhalb des Docroots
   src/routes.php            zentrale Routentabelle
   src/Shared/               Router, Access, OriginCheck, Guard, Request, Response, Database, Config, Token
-  src/{Auth,Region,Admin,Stats}/*Controller.php
+  src/{Auth,Region,Admin,Stats,Seo}/*Controller.php
   config/{app,database}.php Templates; *.local.php überschreibt (gitignored)
   tests/                    PHPUnit: Unit-Tests (Request, Router, Routen-Vollständigkeit)
   tests/Integration/        PHPUnit gegen Testdatenbank + Dev-Server (Rollen-Matrix u. a.)
@@ -83,7 +88,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 69 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 54 Unit- + 135 Integrationstests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 54 Unit- + 147 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -307,6 +312,20 @@ verstreuten Modulvariablen.
 eine lokale `escHtml()` (escapt `& < > " '`). Alles, was per `innerHTML` ins DOM kommt,
 läuft da durch, auch Werte aus `countries.json` und GeoJSON. Neue Templates genauso,
 oder gleich `textContent` nutzen.
+
+**Suchmaschinen.** `/map/{user}` und `/stats/{user}` sind dieselben statischen Dateien.
+Titel, Beschreibung, `canonical` und `og:url` setzt deshalb `PageMeta.set()` je Nutzer
+(Google wertet das nach dem Rendern aus). Das statische HTML trägt die allgemeinen
+Texte und Open-Graph-Tags für Link-Vorschauen, die kein JavaScript ausführen. Die
+Kartenseite hat eine optisch versteckte `h1` und einen `noscript`-Text. Die Admin-Seite
+trägt `noindex`, API-Antworten den Header `X-Robots-Tag: noindex`. Die Favicons liegen
+im Docroot (`/favicon.ico` fragen Browser ohne `<link>` direkt ab). Quelle ist
+`favicon.svg`, die PNG- und ICO-Dateien sind daraus gerendert.
+`/sitemap.xml` erzeugt `SitemapController` (Route mit `Access::Public`, per Rewrite in
+`public/.htaccess` bzw. `scripts/dev-router.php` auf den Front-Controller). Sie listet die
+Startseite sowie Karte und Statistik jedes aktiven Nutzers mit mindestens einem Besuch.
+Die URLs sind absolut aus `base_url`, `lastmod` ist die letzte Besuchsänderung.
+`Response::raw()` liefert Nicht-JSON-Antworten.
 
 **Content-Security-Policy** steht als `<meta>`-Tag in allen drei HTML-Dateien:
 `script-src 'self'` (keine Inline-Skripte, kein `eval`/`new Function`), Bilder nur von

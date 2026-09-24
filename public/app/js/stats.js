@@ -183,6 +183,13 @@
     els.heroAvatar.textContent = initials;
     els.heroTitle.textContent  = username;
     els.heroSub.textContent    = 'Statistiken & Fortschritt';
+
+    PageMeta.set({
+      title:       `Statistiken von ${username} – CacheCounty`,
+      description: `Statistiken, Meilensteine und Ranglistenplatz von ${username} bei CacheCounty: ` +
+                   `besuchte Landkreise, Bezirke und Kommunen im Überblick.`,
+      path:        '/stats/' + encodeURIComponent(username),
+    });
   }
 
   // ── Ländervergleich ────────────────────────────────────────────────────────

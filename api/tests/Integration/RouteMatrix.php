@@ -41,6 +41,11 @@ final class RouteMatrix
                 'path' => '/api/stats/userA', 'body' => null, 'expect' => self::PUBLIC,
             ],
 
+            'GET /sitemap.xml' => [
+                'access' => 'Public',
+                'path' => '/sitemap.xml', 'body' => null, 'expect' => self::PUBLIC,
+            ],
+
             // ── Auth ──
             // Unbekannte Adresse: kein Mailversand, immer generische Erfolgsmeldung
             'POST /api/auth/magic-link' => [

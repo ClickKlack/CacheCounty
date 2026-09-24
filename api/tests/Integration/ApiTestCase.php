@@ -270,7 +270,7 @@ abstract class ApiTestCase extends TestCase
      * Sendet einen Request an den Test-Server – wie ein Browser auf derselben Origin
      * (Origin-Header = Server-URL, Body als JSON).
      *
-     * @return array{status: int, body: ?array, headers: string}
+     * @return array{status: int, body: ?array, raw: string, headers: string}
      */
     protected function request(
         string $method,
@@ -291,7 +291,7 @@ abstract class ApiTestCase extends TestCase
      * Request mit exakt den angegebenen Headern – für Tests, die fremde Origins
      * oder falsche Content-Types nachstellen.
      *
-     * @return array{status: int, body: ?array, headers: string}
+     * @return array{status: int, body: ?array, raw: string, headers: string}
      */
     protected function rawRequest(
         string $method,
@@ -321,9 +321,12 @@ abstract class ApiTestCase extends TestCase
         $status     = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
 
+        $raw = substr($response, $headerSize);
+
         return [
             'status'  => $status,
-            'body'    => json_decode(substr($response, $headerSize), true),
+            'body'    => json_decode($raw, true),
+            'raw'     => $raw,
             'headers' => substr($response, 0, $headerSize),
         ];
     }

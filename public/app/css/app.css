@@ -21,6 +21,11 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Für Screenreader und Suchmaschinen lesbar, optisch ausgeblendet */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.noscript-note { position: fixed; inset: var(--header-h) 0 auto 0; z-index: 2000; background: var(--cream); color: var(--ink); padding: 24px 20px; line-height: 1.6; box-shadow: var(--shadow-card); }
+.noscript-note p + p { margin-top: 10px; }
 html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--parchment); color: var(--ink); }
 
 #app-header { position: fixed; top: 0; left: 0; right: 0; z-index: 900; background: var(--bark); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }

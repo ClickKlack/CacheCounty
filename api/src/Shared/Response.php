@@ -12,6 +12,21 @@ class Response
         exit;
     }
 
+    /**
+     * Non-JSON response (e.g. sitemap.xml). Replaces the JSON content type and
+     * Cache-Control set by the front controller; further headers can be passed.
+     */
+    public static function raw(string $body, string $contentType, array $headers = [], int $status = 200): never
+    {
+        http_response_code($status);
+        header('Content-Type: ' . $contentType);
+        foreach ($headers as $header) {
+            header($header);
+        }
+        echo $body;
+        exit;
+    }
+
     public static function ok(mixed $data = null): never
     {
         self::json(['success' => true, 'data' => $data]);

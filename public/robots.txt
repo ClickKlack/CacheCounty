@@ -1,0 +1,8 @@
+# CacheCounty – öffentlich sind Startseite, Karten (/map/…) und Statistiken (/stats/…).
+# Die Admin-Seite ist bewusst nicht gesperrt: Sie trägt noindex, und das muss der
+# Crawler lesen können. Die API liefert nur JSON und hat keinen Nutzen im Index.
+User-agent: *
+Disallow: /api/
+
+# Absolute URL der Produktion (robots.txt ist statisch; die Sitemap selbst nutzt base_url)
+Sitemap: https://cachecounty.joschoen.de/sitemap.xml

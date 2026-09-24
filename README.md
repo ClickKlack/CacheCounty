@@ -58,6 +58,10 @@ Benötigt werden Apache mit `mod_rewrite` und `AllowOverride` für `.htaccess`.
 Zeigt das Document Root versehentlich auf die Projektwurzel, leitet die dortige
 `.htaccess` alle Anfragen nach `public/` um.
 
+`base_url` in `app.local.php` muss die öffentliche Adresse sein – daraus baut `/sitemap.xml`
+ihre absoluten URLs. Der Sitemap-Eintrag in `public/robots.txt` nennt die Produktions-URL
+fest; bei einer anderen Domain dort anpassen.
+
 `public/.htaccess` setzt Security-Header (benötigt `mod_headers`). HSTS startet mit
 `max-age=300`. Läuft die Seite danach stabil über HTTPS, den Wert in
 `public/.htaccess` auf `31536000` (ein Jahr) erhöhen.
@@ -80,6 +84,8 @@ cachecounty/
 ├── public/                      ← Document Root
 │   ├── .htaccess                ← Rewrites für /api, /map, /stats
 │   ├── api/index.php            ← Entry Point der API
+│   ├── favicon.svg / .ico       ← Favicon, dazu Touch-Icons und site.webmanifest
+│   ├── robots.txt
 │   ├── app/                     ← Frontend (Leaflet.js, Vanilla JS)
 │   │   ├── index.html           ← Kartenansicht (/map/{username})
 │   │   ├── stats.html           ← Statistikseite (/stats/{username})
@@ -143,6 +149,7 @@ cachecounty/
 | DELETE | /api/admin/sessions/{token}       | Admin   |
 | GET    | /api/stats/{username}             | –       |
 | GET    | /api/leaderboard                  | –       |
+| GET    | /sitemap.xml                      | –       |
 
 Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`. Das Land muss in
 `config/countries.json` konfiguriert sein, der Regionsteil zum `region_code_pattern` des

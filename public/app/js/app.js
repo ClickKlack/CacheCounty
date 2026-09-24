@@ -194,6 +194,23 @@ document.addEventListener('DOMContentLoaded', () => {
     closeDialog();
   }
 
+  // Titel, Beschreibung und canonical-URL je Karte (page-meta.js)
+  function updatePageMeta() {
+    const user = state.pageUser;
+    if (!user) {
+      PageMeta.set({ path: '/' });
+      return;
+    }
+    const heading = `Karte von ${user}`;
+    $('page-title').textContent = heading;
+    PageMeta.set({
+      title:       `${heading} – CacheCounty`,
+      description: `Welche Landkreise, Bezirke und Kommunen hat ${user} schon besucht? ` +
+                   `Die Geocaching-Karte von ${user} bei CacheCounty.`,
+      path:        '/map/' + encodeURIComponent(user),
+    });
+  }
+
   // ── Owner badge ───────────────────────────────────────────────
 
   function renderOwnerBadge() {
@@ -592,6 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     state.pageUser = getPageUsername();
+    updatePageMeta();
     renderAuthArea();
     renderOwnerBadge();
     CacheMap.init('map');

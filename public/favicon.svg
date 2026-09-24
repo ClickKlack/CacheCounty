@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- CacheCounty-Logo ◈: Raute mit gefüllter Innenraute, Farben wie im Header -->
+  <rect width="64" height="64" rx="14" fill="#3a2e1f"/>
+  <path d="M32 9 L55 32 L32 55 L9 32 Z" fill="none" stroke="#6a9463" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M32 21 L43 32 L32 43 L21 32 Z" fill="#6a9463"/>
+</svg>

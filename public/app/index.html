@@ -8,7 +8,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base href="/app/">
-  <title>CacheCounty</title>
+  <title>CacheCounty – Landkreise sammeln für Geocacher</title>
+  <meta name="description" content="CacheCounty – die Karte für Geocacher: Markiere, in welchen Landkreisen, Bezirken und Kommunen du schon Caches gefunden hast, und sieh deinen Fortschritt für Deutschland, Österreich, die Schweiz und Dänemark.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="CacheCounty">
+  <meta property="og:locale" content="de_DE">
+  <meta property="og:title" content="CacheCounty – Landkreise sammeln für Geocacher">
+  <meta property="og:description" content="CacheCounty – die Karte für Geocacher: Markiere, in welchen Landkreisen, Bezirken und Kommunen du schon Caches gefunden hast, und sieh deinen Fortschritt für Deutschland, Österreich, die Schweiz und Dänemark.">
+
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#3a2e1f">
 
   <link rel="stylesheet" href="vendor/leaflet/1.9.4/leaflet.css">
   <script src="vendor/leaflet/1.9.4/leaflet.js" defer></script>
@@ -18,6 +30,19 @@
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+
+  <!-- Überschrift für Screenreader und Suchmaschinen; app.js passt sie auf /map/{user} an -->
+  <h1 id="page-title" class="visually-hidden">CacheCounty – Landkreise sammeln für Geocacher</h1>
+
+  <noscript>
+    <div class="noscript-note">
+      <p><strong>CacheCounty</strong> ist die Karte für Geocacher: Hier markierst du, in welchen
+      Landkreisen, Bezirken und Kommunen du schon Caches gefunden hast – für Deutschland,
+      Österreich, die Schweiz und Dänemark –, und verfolgst deinen Fortschritt in Statistiken
+      und einer Rangliste.</p>
+      <p>Die Karte benötigt JavaScript. Bitte aktiviere es in deinem Browser.</p>
+    </div>
+  </noscript>
 
   <header id="app-header">
     <div class="header-inner">
@@ -141,6 +166,7 @@
 
   <script src="js/api.js"></script>
   <script src="js/auth-menu.js"></script>
+  <script src="js/page-meta.js"></script>
   <script src="js/outline.js"></script>
   <script src="js/map.js"></script>
   <script src="js/export.js"></script>
