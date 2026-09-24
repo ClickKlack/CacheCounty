@@ -336,6 +336,15 @@ Startseite sowie Karte und Statistik jedes aktiven Nutzers mit mindestens einem 
 Die URLs sind absolut aus `base_url`, `lastmod` ist die letzte Besuchsänderung.
 `Response::raw()` liefert Nicht-JSON-Antworten.
 
+**Caching** regelt `public/.htaccess` ausdrücklich. Ohne `Cache-Control` schätzen Browser die
+Frische selbst, und nach einem Deploy liefen Smartphones tagelang mit alten Skripten.
+- HTML, JS, CSS, JSON, GeoJSON: `no-cache`, also immer nachfragen. Unverändert → 304 per ETag.
+- Icons: ein Tag.
+- `app/vendor/`: ein Jahr, `immutable`, per `<If>`. Eine eigene `.htaccess` in `vendor/`
+  würde von den `<FilesMatch>`-Regeln überschrieben, das wurde mit Apache getestet.
+Deshalb Dateien in `vendor/` nie unter gleichem Pfad ersetzen, sondern immer ein neues
+Versionsverzeichnis anlegen.
+
 **Content-Security-Policy** steht als `<meta>`-Tag in allen drei HTML-Dateien:
 `script-src 'self'` (keine Inline-Skripte, kein `eval`/`new Function`), Bilder nur von
 der eigenen Origin, `data:` und den OSM-Kachelservern, `connect-src 'self'`.
