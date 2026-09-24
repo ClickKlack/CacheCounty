@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CacheCounty\Auth;
 
+use CacheCounty\Shared\Config;
 use CacheCounty\Shared\Database;
 use CacheCounty\Shared\Guard;
 use CacheCounty\Shared\Request;
@@ -12,7 +13,7 @@ use PHPMailer\PHPMailer\SMTP;
 
 class AuthController
 {
-    // Session lifetime: 30 days
+    // Session lifetime: 365 days
     private const SESSION_TTL_DAYS   = 365;
     // Magic link lifetime: 15 minutes
     private const MAGIC_LINK_TTL_MIN = 15;
@@ -122,13 +123,9 @@ class AuthController
         ]);
 
         // Set HttpOnly session cookie
-        setcookie('cc_session', $sessionId, [
-            'expires'  => strtotime('+' . self::SESSION_TTL_DAYS . ' days'),
-            'path'     => '/',
-            'httponly' => true,
-            'samesite' => 'Lax',
-            'secure'   => isset($_SERVER['HTTPS']),
-        ]);
+        setcookie('cc_session', $sessionId, $this->cookieOptions(
+            strtotime('+' . self::SESSION_TTL_DAYS . ' days')
+        ));
 
         Response::ok([
             'username' => $link['username'],
@@ -172,13 +169,7 @@ class AuthController
         }
 
         // Clear cookie
-        setcookie('cc_session', '', [
-            'expires'  => time() - 3600,
-            'path'     => '/',
-            'httponly' => true,
-            'samesite' => 'Lax',
-            'secure'   => isset($_SERVER['HTTPS']),
-        ]);
+        setcookie('cc_session', '', $this->cookieOptions(time() - 3600));
 
         Response::ok(['message' => 'Logged out.']);
     }
@@ -188,14 +179,26 @@ class AuthController
     // -------------------------------------------------------------------------
 
     /**
+     * Options for the session cookie. 'secure' follows base_url instead of
+     * $_SERVER['HTTPS'], which is often unset behind a TLS-terminating proxy.
+     */
+    private function cookieOptions(int $expires): array
+    {
+        return [
+            'expires'  => $expires,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => Config::isHttps(),
+        ];
+    }
+
+    /**
      * Sends the magic link e-mail via PHPMailer (SMTP).
      */
     private function sendMagicLinkEmail(string $to, string $token): void
     {
-        $configFile = file_exists(BASE_PATH . '/config/app.local.php')
-            ? BASE_PATH . '/config/app.local.php'
-            : BASE_PATH . '/config/app.php';
-        $config  = require $configFile;
+        $config  = Config::app();
         $baseUrl = rtrim($config['base_url'], '/');
         $link    = $baseUrl . '/app/?token=' . $token;
 

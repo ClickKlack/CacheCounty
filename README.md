@@ -35,6 +35,8 @@ Beide Dateien mit den eigenen Werten befüllen. Sie werden nicht versioniert.
 `database.local.php` – Datenbankzugangsdaten (Host, Name, User, Passwort).
 
 `app.local.php` – Basis-URL, E-Mail-Absender und SMTP-Zugangsdaten für den Magic-Link-Versand (PHPMailer).
+Beginnt `base_url` mit `https://`, wird das Session-Cookie mit `Secure` gesetzt.
+`trust_cloudflare` nur auf `true` setzen, wenn der Server ausschließlich über Cloudflare erreichbar ist.
 
 ### 3. Composer-Abhängigkeiten installieren
 
@@ -53,6 +55,10 @@ bleiben außerhalb und sind per HTTP nicht erreichbar.
 Benötigt werden Apache mit `mod_rewrite` und `AllowOverride` für `.htaccess`.
 Zeigt das Document Root versehentlich auf die Projektwurzel, leitet die dortige
 `.htaccess` alle Anfragen nach `public/` um.
+
+`public/.htaccess` setzt Security-Header (benötigt `mod_headers`). HSTS startet mit
+`max-age=300`. Läuft die Seite danach stabil über HTTPS, den Wert in
+`public/.htaccess` auf `31536000` (ein Jahr) erhöhen.
 
 ### 5. GeoJSON-Daten
 

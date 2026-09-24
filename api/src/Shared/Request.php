@@ -66,8 +66,9 @@ class Request
     {
         $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-        // Cloudflare: always trust CF-Connecting-IP when present
-        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        // Cloudflare: trust CF-Connecting-IP only when explicitly configured –
+        // otherwise any client could spoof its IP via this header
+        if (!empty(Config::app()['trust_cloudflare']) && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
             $cfIp = trim($_SERVER['HTTP_CF_CONNECTING_IP']);
             if (filter_var($cfIp, FILTER_VALIDATE_IP) !== false) {
                 return $cfIp;
