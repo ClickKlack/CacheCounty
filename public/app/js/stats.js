@@ -10,7 +10,7 @@
 
   const state = {
     username:       null,   // aus URL-Pfad
-    session:        null,   // { username, is_admin } | null
+    session:        null,   // { username, is_admin } | null – immer vom Server (/me)
     countries:      [],     // aus /api/countries
     currentCountry: null,   // aktuell gewähltes Land-Objekt
     statsData:      null,   // von /api/stats/{username}
@@ -58,7 +58,8 @@
     }
 
     setupAuthListeners();
-    restoreSession();
+    Api.setUnauthorizedHandler(() => { state.session = null; renderAuthArea(); });
+    await restoreSession();
     renderAuthArea();
 
     try {
@@ -495,12 +496,12 @@
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  function restoreSession() {
-    const token = sessionStorage.getItem('cc_token');
-    const uname = sessionStorage.getItem('cc_username');
-    const admin = sessionStorage.getItem('cc_is_admin');
-    if (token && uname) {
-      state.session = { username: uname, is_admin: admin === '1', token };
+  // Anmeldestatus und Rolle kommen immer vom Server – auch in einem neuen Tab
+  async function restoreSession() {
+    try {
+      state.session = await Api.me();
+    } catch (_) {
+      state.session = null;   // nicht eingeloggt
     }
   }
 
@@ -510,6 +511,7 @@
       AuthMenu.render(els.authArea, {
         username: state.session.username,
         items: [
+          ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
           { label: 'Meine Karte', href: '/map/' + encodeURIComponent(state.session.username) },
           { label: 'Abmelden', onClick: () => logout(false) },
           { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
@@ -526,9 +528,6 @@
   // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
   async function logout(everywhere) {
     try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch { /* ignorieren */ }
-    sessionStorage.removeItem('cc_token');
-    sessionStorage.removeItem('cc_username');
-    sessionStorage.removeItem('cc_is_admin');
     state.session = null;
     renderAuthArea();
   }

@@ -271,9 +271,14 @@ abstract class ApiTestCase extends TestCase
      *
      * @return array{status: int, body: ?array, headers: string}
      */
-    protected function request(string $method, string $path, ?array $body = null, ?string $token = null): array
-    {
-        $headers = ['Accept: application/json', 'Origin: ' . self::$baseUrl];
+    protected function request(
+        string $method,
+        string $path,
+        ?array $body = null,
+        ?string $token = null,
+        array $extraHeaders = []
+    ): array {
+        $headers = ['Accept: application/json', 'Origin: ' . self::$baseUrl, ...$extraHeaders];
         if ($body !== null) {
             $headers[] = 'Content-Type: application/json';
         }

@@ -68,13 +68,16 @@ class AuthController
     // -------------------------------------------------------------------------
 
     /**
-     * GET /api/auth/verify?token=<hex>
+     * POST /api/auth/verify
+     * Body: { "token": "<hex>" }
      *
-     * Validates the magic link token, creates a session and sets a cookie.
+     * Validates the magic link token, creates a session and sets the HttpOnly cookie.
+     * POST (not GET) so that the request is subject to the same-origin checks for
+     * state-changing requests – a foreign page cannot log a visitor into another account.
      */
     public function verifyToken(Request $request): void
     {
-        $token = trim((string) $request->query('token'));
+        $token = trim((string) $request->input('token', ''));
 
         if (strlen($token) !== 64) {
             Response::error('Invalid token.');
@@ -134,10 +137,10 @@ class AuthController
             strtotime('+' . self::SESSION_TTL_DAYS . ' days')
         ));
 
+        // The token itself is only in the cookie, never in the response body
         Response::ok([
             'username' => $link['username'],
             'is_admin' => (bool) $link['is_admin'],
-            'token'    => $sessionId, // also returned for API clients that can't use cookies
         ]);
     }
 
@@ -146,7 +149,7 @@ class AuthController
     /**
      * GET /api/auth/me
      *
-     * Returns the currently authenticated user based on session cookie or bearer token.
+     * Returns the currently authenticated user based on the session cookie.
      */
     public function me(Request $request): void
     {

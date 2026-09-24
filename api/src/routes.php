@@ -16,7 +16,7 @@ $router->get('/api/stats/{username}',        [StatsController::class, 'userStats
 
 // --- Auth ---
 $router->post('/api/auth/magic-link',        [AuthController::class, 'requestMagicLink']);
-$router->get('/api/auth/verify',             [AuthController::class, 'verifyToken']);
+$router->post('/api/auth/verify',            [AuthController::class, 'verifyToken']);
 $router->get('/api/auth/me',                 [AuthController::class, 'me']);
 $router->post('/api/auth/logout',            [AuthController::class, 'logout']);
 $router->post('/api/auth/logout-all',        [AuthController::class, 'logoutAll']);

@@ -48,18 +48,15 @@ class Request
         return $this->body()[$key] ?? $default;
     }
 
-    public function bearerToken(): ?string
-    {
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (str_starts_with($header, 'Bearer ')) {
-            return substr($header, 7);
-        }
-        return null;
-    }
-
+    /**
+     * Session token from the HttpOnly cookie – the only supported transport.
+     * (A Bearer header is deliberately not accepted: the token must never be
+     * readable by JavaScript.)
+     */
     public function sessionToken(): ?string
     {
-        return $_COOKIE['cc_session'] ?? $this->bearerToken();
+        $token = $_COOKIE['cc_session'] ?? null;
+        return is_string($token) && $token !== '' ? $token : null;
     }
 
     public function ip(): string

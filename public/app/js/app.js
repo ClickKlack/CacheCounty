@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── State ─────────────────────────────────────────────────────
   const state = {
-    session:        null,   // { username, is_admin, token } | null
+    session:        null,   // { username, is_admin } | null – immer vom Server (/me, /verify)
     countries:      [],     // full country configs from API
     currentCountry: null,   // active country config object
     pageUser:       null,   // username from URL /map/{username}
@@ -129,11 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!token) return;
     history.replaceState({}, '', location.pathname);
     try {
-      const data = await Api.verifyToken(token);
-      sessionStorage.setItem('cc_token',    data.token);
-      sessionStorage.setItem('cc_username', data.username);
-      sessionStorage.setItem('cc_admin',    data.is_admin ? '1' : '0');
-      state.session = data;
+      // Der Server setzt das HttpOnly-Cookie; hier kommen nur Name und Rolle an
+      state.session = await Api.verifyToken(token);
     } catch (e) {
       showToast('Der Login-Link ist ungültig oder abgelaufen.', 'error');
     }
@@ -151,11 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   }
 
-  function restoreSession() {
-    const token    = sessionStorage.getItem('cc_token');
-    const username = sessionStorage.getItem('cc_username');
-    const isAdmin  = sessionStorage.getItem('cc_admin') === '1';
-    if (token && username) state.session = { token, username, is_admin: isAdmin };
+  // Aufgerufen von api.js bei 401: Session abgelaufen oder anderswo beendet
+  function onSessionLost() {
+    if (!state.session) return;
+    state.session = null;
+    renderAuthArea();
+    renderOwnerBadge();
+    renderStatePanel();   // entfernt die Download-Buttons des Besitzers
+    closeDialog();
+    showToast('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.', 'error');
   }
 
   // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
@@ -186,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
   async function logout(everywhere) {
     try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch (_) {}
-    sessionStorage.clear();
     state.session = null;
     renderAuthArea();
     renderOwnerBadge();
@@ -508,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStatePanel();
       onRegionClick(state.activeRegion);
     } catch (e) {
-      alert('Fehler: ' + e.message);
+      if (e.status !== 401) alert('Fehler: ' + e.message);   // 401 meldet onSessionLost()
     } finally {
       els.btnToggle.disabled = false;
     }
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStatePanel();
       onRegionClick(state.activeRegion);
     } catch (e) {
-      alert('Fehler: ' + e.message);
+      if (e.status !== 401) alert('Fehler: ' + e.message);   // 401 meldet onSessionLost()
     } finally {
       els.btnSave.disabled = false;
     }
@@ -581,15 +581,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Boot ──────────────────────────────────────────────────────
 
   async function boot() {
+    Api.setUnauthorizedHandler(onSessionLost);
     await checkMagicLinkToken();
-    restoreSession();
 
-    // If sessionStorage is empty, try restoring the session via the HttpOnly cookie
+    // Anmeldestatus und Rolle kommen immer vom Server – nie aus dem Browser-Speicher
     if (!state.session) {
       try {
-        const data = await Api.me();
-        state.session = data;
-      } catch (_) { /* not logged in */ }
+        state.session = await Api.me();
+      } catch (_) { /* nicht eingeloggt */ }
     }
 
     state.pageUser = getPageUsername();

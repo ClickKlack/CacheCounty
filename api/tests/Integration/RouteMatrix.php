@@ -43,8 +43,8 @@ final class RouteMatrix
                 'expect' => self::PUBLIC,
             ],
             // Ungültiges Token: für jede Rolle 401
-            'GET /api/auth/verify' => [
-                'path' => '/api/auth/verify?token=' . str_repeat('f', 64), 'body' => null,
+            'POST /api/auth/verify' => [
+                'path' => '/api/auth/verify', 'body' => ['token' => str_repeat('f', 64)],
                 'expect' => ['anon' => 401, 'user' => 401, 'inactive' => 401, 'admin' => 401],
             ],
             'GET /api/auth/me' => [

@@ -71,41 +71,28 @@ class RequestTest extends TestCase
         $this->assertSame('DE-09162', $this->req->param('code'));
     }
 
-    // ── bearerToken() ─────────────────────────────────────────────
-
-    public function test_bearerToken_extracts_from_header(): void
-    {
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer mytoken123';
-        $this->assertSame('mytoken123', $this->req->bearerToken());
-    }
-
-    public function test_bearerToken_returns_null_without_header(): void
-    {
-        $this->assertNull($this->req->bearerToken());
-    }
-
-    public function test_bearerToken_returns_null_for_non_bearer_scheme(): void
-    {
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Basic dXNlcjpwYXNz';
-        $this->assertNull($this->req->bearerToken());
-    }
-
     // ── sessionToken() ────────────────────────────────────────────
 
-    public function test_sessionToken_prefers_cookie_over_bearer(): void
+    public function test_sessionToken_reads_cookie(): void
     {
-        $_COOKIE['cc_session']         = 'cookie-token';
-        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer bearer-token';
+        $_COOKIE['cc_session'] = 'cookie-token';
         $this->assertSame('cookie-token', $this->req->sessionToken());
     }
 
-    public function test_sessionToken_falls_back_to_bearer(): void
+    public function test_sessionToken_ignores_bearer_header(): void
     {
+        // Nur das HttpOnly-Cookie zählt – ein Bearer-Header wird bewusst nicht akzeptiert
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer bearer-token';
-        $this->assertSame('bearer-token', $this->req->sessionToken());
+        $this->assertNull($this->req->sessionToken());
     }
 
-    public function test_sessionToken_returns_null_without_either(): void
+    public function test_sessionToken_returns_null_for_empty_cookie(): void
+    {
+        $_COOKIE['cc_session'] = '';
+        $this->assertNull($this->req->sessionToken());
+    }
+
+    public function test_sessionToken_returns_null_without_cookie(): void
     {
         $this->assertNull($this->req->sessionToken());
     }

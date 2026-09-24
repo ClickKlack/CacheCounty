@@ -8,13 +8,18 @@ class AuthFlowTest extends ApiTestCase
 {
     private const LINK_TOKEN = 'b000000000000000000000000000000000000000000000000000000000000001';
 
+    private function verify(string $token): array
+    {
+        return $this->request('POST', '/api/auth/verify', ['token' => $token]);
+    }
+
     // ── Magic Link ───────────────────────────────────────────────────────────
 
     public function test_verify_creates_session_and_sets_cookie(): void
     {
         $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
 
-        $response = $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN);
+        $response = $this->verify(self::LINK_TOKEN);
 
         $this->assertSame(200, $response['status']);
         $this->assertSame('userA', $response['body']['data']['username']);
@@ -23,26 +28,51 @@ class AuthFlowTest extends ApiTestCase
         $this->assertMatchesRegularExpression('/^Set-Cookie: cc_session=.*HttpOnly/mi', $response['headers']);
     }
 
+    public function test_verify_does_not_return_the_session_token(): void
+    {
+        $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
+
+        $data = $this->verify(self::LINK_TOKEN)['body']['data'];
+
+        $this->assertSame(['username', 'is_admin'], array_keys($data));
+    }
+
+    public function test_verify_via_get_is_no_longer_possible(): void
+    {
+        $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
+
+        $this->assertSame(404, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        // Das Token bleibt dabei unverbraucht
+        $this->assertSame(200, $this->verify(self::LINK_TOKEN)['status']);
+    }
+
+    public function test_bearer_header_is_not_accepted(): void
+    {
+        $response = $this->request('GET', '/api/auth/me', null, null, ['Authorization: Bearer ' . self::TOKEN_A]);
+
+        $this->assertSame(401, $response['status']);
+    }
+
     public function test_verify_token_works_only_once(): void
     {
         $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
 
-        $this->assertSame(200, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
-        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        $this->assertSame(200, $this->verify(self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->verify(self::LINK_TOKEN)['status']);
     }
 
     public function test_verify_rejects_expired_token(): void
     {
         $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN, '-1 minute');
 
-        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->verify(self::LINK_TOKEN)['status']);
     }
 
     public function test_verify_rejects_token_of_inactive_user(): void
     {
         $this->createMagicLink(self::INACTIVE_ID, self::LINK_TOKEN);
 
-        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->verify(self::LINK_TOKEN)['status']);
     }
 
     // ── Session-Gültigkeit ───────────────────────────────────────────────────
@@ -109,7 +139,7 @@ class AuthFlowTest extends ApiTestCase
     public function test_session_is_stored_as_hash_only(): void
     {
         $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
-        $response = $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN);
+        $response = $this->verify(self::LINK_TOKEN);
 
         preg_match('/^Set-Cookie: cc_session=([0-9a-f]{64});/mi', $response['headers'], $m);
         $rawCookie = $m[1];
@@ -130,7 +160,7 @@ class AuthFlowTest extends ApiTestCase
             'INSERT INTO magic_links (user_id, token, expires_at) VALUES (?, ?, ?)'
         )->execute([self::USER_A_ID, self::LINK_TOKEN, gmdate('Y-m-d H:i:s', strtotime('+15 minutes'))]);
 
-        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->verify(self::LINK_TOKEN)['status']);
     }
 
     public function test_login_invalidates_other_unused_links(): void
@@ -139,8 +169,8 @@ class AuthFlowTest extends ApiTestCase
         $this->createMagicLink(self::USER_A_ID, self::LINK_TOKEN);
         $this->createMagicLink(self::USER_A_ID, $other);
 
-        $this->assertSame(200, $this->request('GET', '/api/auth/verify?token=' . self::LINK_TOKEN)['status']);
-        $this->assertSame(401, $this->request('GET', '/api/auth/verify?token=' . $other)['status']);
+        $this->assertSame(200, $this->verify(self::LINK_TOKEN)['status']);
+        $this->assertSame(401, $this->verify($other)['status']);
     }
 
     // ── Admin-Sessionliste ───────────────────────────────────────────────────

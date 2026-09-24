@@ -75,8 +75,8 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 52 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 31 Unit- + 95 Integrationstests
+npm test                          # Vitest, 59 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 29 Unit- + 98 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -185,9 +185,17 @@ in `magic_links.token`. Der Roh-Token verlässt den Server genau einmal, per Coo
 Mail. Wer Sessions oder Links in der DB sucht, muss also immer den Hash vergleichen.
 Die Admin-Sessionliste gibt den Hash als `id` aus; er taugt zum Beenden der Session,
 nicht zum Anmelden.
-Übertragung per HttpOnly-Cookie `cc_session` **oder** `Authorization: Bearer`
-(`Request::sessionToken()` prüft in dieser Reihenfolge). Das Frontend spiegelt den Token
-zusätzlich in `sessionStorage`, damit `api.js` den Bearer-Header setzen kann.
+Übertragung **ausschließlich** per HttpOnly-Cookie `cc_session` (`Request::sessionToken()`).
+Ein `Authorization: Bearer`-Header wird bewusst nicht akzeptiert, und keine API-Antwort
+enthält den Token. JavaScript sieht ihn also nie, auch nicht bei einer XSS-Lücke.
+
+**Anmeldestatus und Rolle kommen im Frontend immer vom Server.** Jede Seite fragt beim
+Laden `GET /api/auth/me` ab (bzw. übernimmt die Antwort von `/verify`). Nichts davon wird
+im Browser gespeichert. Ein manipulierter Browser-Speicher kann deshalb keinen
+Admin-Link mehr einblenden. Die Admin-Seite zeigt ihren Inhalt erst, wenn `/me`
+`is_admin` bestätigt. Bei 401 ruft `api.js` den per `Api.setUnauthorizedHandler()`
+registrierten Handler auf; die Seite schaltet dann auf „abgemeldet" (Karte, Statistik)
+bzw. leitet zur Karte weiter (Admin). Fehler tragen `err.status`.
 
 ---
 
@@ -263,9 +271,11 @@ dort werden Usernames und Länderlabels ungeprüft interpoliert. Entschärft wir
 durch die Username-Validierung beim Anlegen (`^[a-zA-Z0-9_\-]{2,60}$`). Wer in `stats.js`
 neue `innerHTML`-Templates schreibt, sollte `escHtml()` dorthin mitnehmen.
 
-**localStorage für Sichtbarkeit, sessionStorage für Auth.**
+**localStorage nur für Sichtbarkeit, nichts für Auth.**
 - `cc_states_{username}_{countryCode}` → Array der ausgeblendeten Bundesland-Codes
-- `cc_token`, `cc_username`, `cc_admin` → Session-Spiegel
+- Login-Daten gehören **nicht** in den Browser-Speicher (siehe §4). Die Altlasten
+  `cc_token`, `cc_username`, `cc_admin`, `cc_is_admin` in `sessionStorage` löscht
+  `api.js` beim Laden.
 
 **GeoJSON-Pfade unterscheiden sich pro Seite.** `app.js` nimmt nur den Dateinamen und
 baut `'../data/' + name` (relativ zu `<base href="/app/">`); `stats.js` nutzt
@@ -309,7 +319,8 @@ Guard-Klausel – ohne sie würde jeder Download das Bundesland mit umschalten.
    (15 min gültig) und versendet es per PHPMailer/SMTP. Antwortet **immer** generisch
    erfolgreich, um E-Mail-Enumeration zu verhindern.
 2. Link zeigt auf `{base_url}/app/?token=…`.
-3. `GET /api/auth/verify?token=…` – markiert das Token per einzelnem `UPDATE … JOIN`
+3. `POST /api/auth/verify` mit `{ "token": … }` – bewusst POST, damit die Anfrage
+   denselben Same-Origin-Regeln unterliegt wie andere schreibende Requests. Markiert das Token per einzelnem `UPDATE … JOIN`
    atomar als benutzt (`rowCount() === 1` ist die eigentliche Prüfung), legt eine Session
    an und setzt das Cookie. Token ist danach verbrannt, weitere noch unbenutzte Links
    desselben Nutzers werden gelöscht.
@@ -376,10 +387,6 @@ Frontend wird same-origin ausgeliefert. Ein Frontend auf anderer Origin (etwa ei
 API-Subdomain) funktioniert deshalb nicht ohne Anpassung.
 
 **Sessions laufen 365 Tage** (`SESSION_TTL_DAYS`), bewusst so entschieden.
-
-**`stats.js` liest `cc_is_admin`, geschrieben wird `cc_admin`** (`app.js:135`).
-Auf der Statistikseite ist das Admin-Flag deshalb immer `false`. Aktuell folgenlos,
-weil die Seite es nicht auswertet – bricht aber, sobald sie es tut.
 
 **`updateVisit` antwortet mit 404, wenn sich nichts geändert hat.** `rowCount()` liefert
 bei MySQL geänderte, nicht getroffene Zeilen. Speichert jemand unveränderte Werte

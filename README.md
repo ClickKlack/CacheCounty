@@ -126,7 +126,7 @@ cachecounty/
 | GET    | /api/countries                    | –       |
 | GET    | /api/map/{username}               | –       |
 | POST   | /api/auth/magic-link              | –       |
-| GET    | /api/auth/verify?token=…          | –       |
+| POST   | /api/auth/verify                  | –       |
 | GET    | /api/auth/me                      | Session |
 | POST   | /api/auth/logout                  | Session |
 | POST   | /api/auth/logout-all              | Session |
