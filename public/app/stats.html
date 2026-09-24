@@ -2,15 +2,17 @@
 <html lang="de" class="stats-page">
 <head>
   <meta charset="UTF-8">
+  <!-- Content-Security-Policy: nur eigene Skripte, Schriften und API; Kacheln von OSM.
+       'unsafe-inline' bei Styles wegen style="…" in HTML und innerHTML-Templates.
+       frame-ancestors wirkt nur als HTTP-Header (public/.htaccess). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base href="/app/">
   <title>CacheCounty – Statistiken</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="vendor/chart.js/4.5.1/chart.umd.min.js"></script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
 
   <link rel="stylesheet" href="css/app.css">
 </head>

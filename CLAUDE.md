@@ -18,14 +18,17 @@ Statistikseite plus eine globale Rangliste.
 | Backend     | PHP 8.3+ (kein Framework), PDO/MariaDB 10.4+                  |
 | Composer    | nur `phpmailer/phpmailer` (prod) + `phpunit/phpunit` (dev)    |
 | Frontend    | Vanilla JS (ES-IIFE-Module, kein Bundler), Leaflet 1.9.4      |
-| Libraries   | turf.js 6.5 (Landesumriss), Chart.js 4 (Timeline) – via CDN   |
+| Libraries   | Chart.js 4.5.1 (Timeline) – selbst gehostet in `public/app/vendor/` |
 | Karten      | OpenStreetMap-Tiles, kein API-Key                             |
 | Tests       | PHPUnit (API) + Vitest (Frontend)                             |
 | Hosting     | klassisches Shared Hosting, Apache + mod_rewrite              |
 
 **Wichtige Konsequenz aus dem Hosting:** kein Build-Step, kein npm im Produktivpfad,
 keine Cronjobs, keine SQL-Events. Alles muss als statische Dateien + PHP-Frontcontroller
-funktionieren. Abhängigkeiten werden per CDN eingebunden, nicht gebündelt.
+funktionieren. Fremdbibliotheken und Schriften liegen unverändert unter
+`public/app/vendor/` (Version im Pfad, Prüfsummen in `vendor/README.md`), es gibt kein
+CDN und kein Google Fonts. Die Seiten fragen nur die eigene Origin und die
+OSM-Kachelserver an.
 
 ---
 
@@ -36,11 +39,14 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
   .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
   api/index.php             Front-Controller: API-Header, Exception-Handler, Dispatch
   app/                      Frontend (statisch, <base href="/app/">)
-    index.html              Kartenansicht      → js/api.js, js/auth-menu.js, js/map.js, js/export.js, js/app.js
+    index.html              Kartenansicht      → js/api.js, js/auth-menu.js, js/outline.js, js/map.js, js/export.js, js/app.js
     stats.html              Statistikseite     → js/api.js, js/auth-menu.js, js/stats.js
     admin.html              Adminbereich       → js/api.js, js/auth-menu.js, js/admin.js
     js/auth-menu.js         Header-Menü aller Seiten (Desktop-Leiste / Mobil-Hamburger)
     js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
+    js/outline.js           Landesumriss aus den Regionsflächen (Leaflet-frei, testbar)
+    vendor/                 Leaflet, Chart.js, Schriften – unverändert, siehe vendor/README.md
+    img/gc.png              Symbol des Geocaching-Buttons (Favicon von geocaching.com, lokal)
     css/app.css             ein Stylesheet für alle drei Seiten
   data/*.geojson            Geodaten – gitignored UND vom Deploy ausgeschlossen
 api/                        REST-API (PHP), außerhalb des Docroots
@@ -54,6 +60,7 @@ config/countries.json       Länderkonfiguration (Projektwurzel, nicht api/confi
 tests/api.test.js           Vitest für public/app/js/api.js
 tests/export.test.js        Vitest für public/app/js/export.js
 tests/auth-menu.test.js     Vitest für public/app/js/auth-menu.js (buildHtml)
+tests/outline.test.js       Vitest für public/app/js/outline.js
 scripts/dev-router.php      Dev-Server-Router (bildet public/.htaccess nach)
 scripts/dev.sh              startet die lokale Entwicklungsumgebung
 scripts/dev.config.example.sh  Vorlage → scripts/dev.config.sh (gitignored)
@@ -75,7 +82,7 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 62 Tests
+npm test                          # Vitest, 69 Tests
 cd api && ./vendor/bin/phpunit    # PHPUnit: 50 Unit- + 134 Integrationstests
 
 # Abhängigkeiten
@@ -268,9 +275,9 @@ Client und ist fälschbar. Wichtig fürs Rate Limiting – nicht auf „erste IP
 ## 6. Frontend-Konventionen
 
 **Kein Modulsystem.** Jede Datei ist eine IIFE, die entweder ein Global exportiert
-(`Api`, `AuthMenu`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
+(`Api`, `AuthMenu`, `CountryOutline`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
 kapselt (`app.js`, `admin.js`). Ladereihenfolge in den HTML-Dateien ist relevant:
-`api.js` zuerst, dann `auth-menu.js`, `map.js`, `export.js`, zuletzt `app.js`.
+`api.js` zuerst, dann `auth-menu.js`, `outline.js`, `map.js`, `export.js`, zuletzt `app.js`.
 
 **Header-Menü.** Alle drei Seiten rendern Anmeldestatus und Aktionen über
 `AuthMenu.render(container, { username, items })`. Ein Item ist entweder ein Link
@@ -281,7 +288,7 @@ Header, darunter hinter einem ☰-Button. Die Umschaltung läuft rein per CSS
 deshalb als Item ergänzen, nicht als eigenes HTML neben dem Menü, und bei einem
 zusätzlichen Eintrag die Breite prüfen, sonst läuft der Header über.
 
-**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js`, `export.js` und `AuthMenu.buildHtml()`
+**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js`, `export.js`, `outline.js` und `AuthMenu.buildHtml()`
 kommen ohne Leaflet und ohne DOM-Bibliotheken aus und werden in den Vitest-Tests
 über `new Function(...)` mit gemockten Globals ausgewertet. Wer neue Logik
 testbar halten will, legt sie in ein solches Modul statt in `app.js` – dort ist
@@ -291,11 +298,18 @@ alles im `DOMContentLoaded`-Closure eingeschlossen und von außen nicht erreichb
 `els`-Objekt mit allen DOM-Referenzen. Neue Zustände dort ergänzen, keine
 verstreuten Modulvariablen.
 
-**HTML-Escaping ist manuell.** `app.js` und `admin.js` haben eine lokale
-`escHtml()`-Funktion für alles, was in `innerHTML` landet. `stats.js` hat sie **nicht** –
-dort werden Usernames und Länderlabels ungeprüft interpoliert. Entschärft wird das nur
-durch die Username-Validierung beim Anlegen (`^[a-zA-Z0-9_\-]{2,60}$`). Wer in `stats.js`
-neue `innerHTML`-Templates schreibt, sollte `escHtml()` dorthin mitnehmen.
+**HTML-Escaping ist manuell.** `app.js`, `admin.js`, `stats.js` und `auth-menu.js` haben je
+eine lokale `escHtml()` (escapt `& < > " '`). Alles, was per `innerHTML` ins DOM kommt,
+läuft da durch, auch Werte aus `countries.json` und GeoJSON. Neue Templates genauso,
+oder gleich `textContent` nutzen.
+
+**Content-Security-Policy** steht als `<meta>`-Tag in allen drei HTML-Dateien:
+`script-src 'self'` (keine Inline-Skripte, kein `eval`/`new Function`), Bilder nur von
+der eigenen Origin, `data:` und den OSM-Kachelservern, `connect-src 'self'`.
+`'unsafe-inline'` gilt nur für Styles (`style="…"` in Templates). Eine neue
+Fremdressource oder Bibliothek, die Code per `eval` erzeugt, fällt in der
+Browser-Konsole sofort als CSP-Verstoß auf. Die CSP dann nicht aufweichen, sondern
+die Ursache beheben, wie bei Turf.
 
 **localStorage nur für Sichtbarkeit, nichts für Auth.**
 - `cc_states_{username}_{countryCode}` → Array der ausgeblendeten Bundesland-Codes
@@ -312,8 +326,13 @@ leicht zu übersehen.
 `stateMap` (`{stateCode: {name, total, regions[]}}`) zurück, aus der Panel und
 Statistiken gerechnet werden. Ausblenden eines Bundeslandes setzt `opacity: 0` **und**
 `pointerEvents: none` – die Daten bleiben unverändert, die Gesamtstatistik ebenfalls.
-Der Landesumriss wird per `turf.dissolve` berechnet; MultiPolygons müssen vorher in
-Polygone aufgelöst werden, sonst schlägt `dissolve` fehl.
+Den Landesumriss berechnet `CountryOutline.fromFeatures()` (`outline.js`): Kanten, die
+in genau einer Region vorkommen, bilden die Außengrenze und werden zu Linien verkettet.
+Bis Phase H war das `turf.dissolve`. Turf 6.5 erzeugt aber Code per `new Function` und
+verstößt damit gegen die CSP, und Turf 7 braucht für Deutschland rund 2 s statt 0,2 s.
+**Voraussetzung:** Nachbarregionen teilen exakt dieselben Eckpunkte, wie in den amtlichen
+Datensätzen. Für DE, AT, CH und DK ist das geprüft: identischer Umriss wie mit `dissolve`.
+Bei einer neuen GeoJSON-Datei vorher prüfen, dass keine Binnengrenzen im Umriss erscheinen.
 
 **GeoJSON-Export für c:geo.** Das Bundesland-Panel bietet dem eingeloggten Besitzer
 je Bundesland zwei Downloads: alle Landkreise farbcodiert (gefunden grün `#4a6741`,

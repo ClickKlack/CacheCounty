@@ -69,7 +69,7 @@ Strikte Trennung von Frontend und Backend über eine REST-API.
 
 - Interaktive Karte mit Landkreis-Umrissen (Leaflet.js + GeoJSON)
 - Besuchte Landkreise farblich hervorgehoben (grün), nicht besuchte neutral/grau
-- Landesumriss als separater Layer (turf.js dissolve), immer sichtbar unabhängig von Bundesland-Sichtbarkeit
+- Landesumriss als separater Layer (Außenkanten aller Regionen, `outline.js`), immer sichtbar unabhängig von Bundesland-Sichtbarkeit
 - Länderauswahl über eine Selectbox (nur konfigurierte Länder)
 - Statistik-Anzeige gesamt: z. B. „42 von 401 Landkreisen besucht" – immer über alle Bundesländer, unabhängig von der Panel-Auswahl
 - Kein Login erforderlich zum Betrachten

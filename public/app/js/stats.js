@@ -90,6 +90,13 @@
 
   // ── Hilfsfunktionen ────────────────────────────────────────────────────────
 
+  // Für alles, was per innerHTML ins DOM kommt – auch Werte aus Konfiguration und GeoJSON
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function parseUsername() {
     const parts = location.pathname.split('/').filter(Boolean);
     // Erwartet: /stats/{username}
@@ -108,7 +115,7 @@
 
   function populateCountrySelect(countries) {
     els.countrySelect.innerHTML = countries
-      .map(c => `<option value="${c.code}">${c.label}</option>`)
+      .map(c => `<option value="${escHtml(c.code)}">${escHtml(c.label)}</option>`)
       .join('');
     els.countrySelect.addEventListener('change', () => {
       const c = state.countries.find(x => x.code === els.countrySelect.value);
@@ -191,9 +198,9 @@
     els.countriesList.innerHTML = countries.map(c => {
       const visited = byCode[c.code] || 0;
       return `
-        <div class="country-progress-item" data-country="${c.code}">
+        <div class="country-progress-item" data-country="${escHtml(c.code)}">
           <div class="country-progress-header">
-            <span class="country-progress-name">${c.label}</span>
+            <span class="country-progress-name">${escHtml(c.label)}</span>
             <span class="country-progress-count">${visited} besucht</span>
           </div>
           <div class="country-progress-bar-wrap">
@@ -371,7 +378,7 @@
       return `
         <div class="state-progress-item">
           <div class="state-progress-meta">
-            <span class="state-progress-name">${st.name}</span>
+            <span class="state-progress-name">${escHtml(st.name)}</span>
             <span class="state-progress-count">${visited} / ${st.total}</span>
           </div>
           <div class="state-progress-bar-wrap">
@@ -449,9 +456,9 @@
     return `
       <div class="milestone-card ${reached ? 'milestone-reached' : ''}">
         <div class="milestone-icon">${star}</div>
-        <div class="milestone-title">${title}</div>
-        <div class="milestone-label">${label}</div>
-        <div class="milestone-value">${value || '–'}</div>
+        <div class="milestone-title">${escHtml(title)}</div>
+        <div class="milestone-label">${escHtml(label)}</div>
+        <div class="milestone-value">${escHtml(value || '–')}</div>
       </div>`;
   }
 
@@ -485,7 +492,7 @@
         <tr class="${isSelf ? 'lb-self' : ''}">
           <td class="lb-rank">${rankIcon}</td>
           <td class="lb-user">
-            <a href="/map/${encodeURIComponent(r.username)}">${r.username}</a>
+            <a href="/map/${encodeURIComponent(r.username)}">${escHtml(r.username)}</a>
           </td>
           <td class="lb-count">${r.visited}</td>
         </tr>`;
@@ -601,7 +608,7 @@
 
   function showError(msg) {
     document.getElementById('stats-main').innerHTML =
-      `<div class="stats-error"><p>${msg}</p><a href="/" class="btn btn-ghost">Zur Startseite</a></div>`;
+      `<div class="stats-error"><p>${escHtml(msg)}</p><a href="/" class="btn btn-ghost">Zur Startseite</a></div>`;
   }
 
   // ── Start ─────────────────────────────────────────────────────────────────
