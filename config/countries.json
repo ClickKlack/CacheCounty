@@ -22,5 +22,29 @@
     "region_code_pattern": "^[0-9]{3}$",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
+  },
+  {
+    "code": "CH",
+    "label": "Schweiz",
+    "state_label": "Kanton",
+    "state_label_plural": "Kantone",
+    "geojson": "data/ch_bezirke.geojson",
+    "region_name_property": "BZ_NAME",
+    "region_code_property": "BZ_ID",
+    "region_code_pattern": "^[0-9]{3,4}$",
+    "state_name_property": "KT_NAME",
+    "state_code_property": "KT_ID"
+  },
+  {
+    "code": "DK",
+    "label": "Dänemark",
+    "state_label": "Region",
+    "state_label_plural": "Regionen",
+    "geojson": "data/dk_kommuner.geojson",
+    "region_name_property": "navn",
+    "region_code_property": "kode",
+    "region_code_pattern": "^[0-9]{4}$",
+    "state_name_property": "regionsnavn",
+    "state_code_property": "regionskode"
   }
 ]

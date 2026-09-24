@@ -155,7 +155,9 @@ angelegt wurden, findet diese Abfrage. Bereinigt wird bewusst nicht automatisch:
 SELECT u.username, v.country_code, v.region_code, v.created_at
   FROM visits v JOIN users u ON u.id = v.user_id
  WHERE NOT (   (v.country_code = 'DE' AND v.region_code REGEXP '^[0-9]{5}$')
-            OR (v.country_code = 'AT' AND v.region_code REGEXP '^[0-9]{3}$'));
+            OR (v.country_code = 'AT' AND v.region_code REGEXP '^[0-9]{3}$')
+            OR (v.country_code = 'CH' AND v.region_code REGEXP '^[0-9]{3,4}$')
+            OR (v.country_code = 'DK' AND v.region_code REGEXP '^[0-9]{4}$'));
 ```
 
 ---

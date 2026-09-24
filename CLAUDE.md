@@ -178,8 +178,8 @@ bricht dieses Prinzip.
 **Besuche werden serverseitig validiert, ohne das GeoJSON zu lesen.**
 `RegionController::parseCode()` prüft, dass das Land in `countries.json` steht und der
 Regionscode zum optionalen `region_code_pattern` des Landes passt (DE `^[0-9]{5}$`,
-AT `^[0-9]{3}$`). Ob der Code wirklich existiert, weiß nur das GeoJSON; es pro Request
-zu parsen (3,8 MB) wäre zu teuer. Das Muster ist der Kompromiss gegen erfundene
+AT `^[0-9]{3}$`, CH `^[0-9]{3,4}$`, DK `^[0-9]{4}$`). Ob der Code wirklich existiert,
+weiß nur das GeoJSON; es pro Request zu parsen (3,8 MB) wäre zu teuer. Das Muster ist der Kompromiss gegen erfundene
 Besuche in der Rangliste. Ein neues Land sollte ein Muster mitbringen. Freitexte:
 `notes` höchstens 2000 Zeichen, `region_name` höchstens 255, beide nur als String.
 
