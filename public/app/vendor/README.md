@@ -23,6 +23,9 @@ beim Download wurde die `integrity`-Prüfsumme des Pakets aus dem npm-Registry g
    prüfen, z. B. `npm pack <paket>@<version>` (prüft die Integrität selbst).
 2. Die oben genannten Dateien in ein **neues** Versionsverzeichnis kopieren
    (z. B. `chart.js/4.6.0/`), die Pfade in den HTML-Dateien anpassen, altes Verzeichnis löschen.
+   **Nie eine Datei unter gleichem Pfad ersetzen:** Alles unter `vendor/` wird ein Jahr lang
+   `immutable` gecacht (`public/.htaccess`). Das gilt auch für `fonts/` – dort ein neues
+   Verzeichnis anlegen (z. B. `fonts-2/`) und die `<link>`-Tags anpassen.
 3. Tabelle unten neu erzeugen (`shasum -a 256`) und die Seiten mit offener Browser-Konsole
    durchklicken (CSP-Verstöße, fehlende Kacheln oder Schriften).
 

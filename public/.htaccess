@@ -28,6 +28,28 @@ RewriteRule ^$ app/index.html [L]
     AddType image/svg+xml .svg
 </IfModule>
 
+# ── Caching ───────────────────────────────────────────────────────────────────
+# Ohne Cache-Control schätzen Browser die Frische selbst (ca. 10 % der Zeit seit der
+# letzten Änderung) – nach einem Deploy liefen Smartphones dann tagelang mit alten
+# Skripten. Deshalb ausdrücklich:
+# - HTML/JS/CSS/JSON/GeoJSON/Manifest: immer beim Server nachfragen (no-cache). Ist die
+#   Datei unverändert, antwortet Apache per ETag nur mit 304 – das kostet kaum etwas.
+# - Icons/Bilder: einen Tag.
+# - app/vendor/: ein Jahr, immutable – die Version steht im Pfad, eine neue Version hat
+#   eine neue URL. Als <If>, weil Apache <If> nach <FilesMatch> auswertet; eine eigene
+#   .htaccess in vendor/ würde von den FilesMatch-Regeln oben überschrieben.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|js|css|json|geojson|webmanifest|xml|txt)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    <FilesMatch "\.(ico|png|svg)$">
+        Header set Cache-Control "public, max-age=86400"
+    </FilesMatch>
+    <If "%{REQUEST_URI} =~ m#/app/vendor/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+</IfModule>
+
 # ── Security-Header ───────────────────────────────────────────────────────────
 # Die vollständige Content-Security-Policy steht als <meta>-Tag in den HTML-Dateien;
 # frame-ancestors wirkt nur als HTTP-Header und steht deshalb hier.
