@@ -25,7 +25,7 @@ class RegionController
      */
     public function countries(Request $request): void
     {
-        // region_code_pattern is deliberately not exposed – only the server needs it
+        // region_code_pattern and pinned are deliberately not exposed – only the server needs them
         $result = array_map(fn($c) => [
             'code'                 => $c['code'],
             'label'                => $c['label'],
@@ -36,7 +36,7 @@ class RegionController
             'region_code_property' => $c['region_code_property'] ?? null,
             'state_name_property'  => $c['state_name_property']  ?? null,
             'state_code_property'  => $c['state_code_property']  ?? null,
-        ], array_values($this->loadCountries()));
+        ], self::sortCountries(array_values($this->loadCountries())));
 
         Response::ok($result);
     }
@@ -226,6 +226,39 @@ class RegionController
         }
 
         return self::$countryConfig;
+    }
+
+    /**
+     * Display order of the countries: entries with "pinned": true first (in config
+     * order), then all others alphabetically by German label (Ö sorts like O).
+     * The order of /api/countries drives the country select, the country comparison
+     * and the leaderboard tabs – the first entry is the default country.
+     */
+    public static function sortCountries(array $countries, bool $useIntl = true): array
+    {
+        $collator = ($useIntl && class_exists(\Collator::class)) ? new \Collator('de_DE') : null;
+
+        usort($countries, function (array $a, array $b) use ($collator): int {
+            $pinnedA = !empty($a['pinned']);
+            $pinnedB = !empty($b['pinned']);
+            if ($pinnedA !== $pinnedB) {
+                return $pinnedA ? -1 : 1;
+            }
+            if ($pinnedA) {
+                return 0; // usort is stable: pinned countries keep their config order
+            }
+            return $collator
+                ? $collator->compare($a['label'], $b['label'])
+                : strcasecmp(self::foldUmlauts($a['label']), self::foldUmlauts($b['label']));
+        });
+
+        return $countries;
+    }
+
+    /** Fallback without the intl extension: treat umlauts like their base letters */
+    private static function foldUmlauts(string $s): string
+    {
+        return strtr($s, ['Ä' => 'A', 'Ö' => 'O', 'Ü' => 'U', 'ä' => 'a', 'ö' => 'o', 'ü' => 'u', 'ß' => 'ss']);
     }
 
     /**

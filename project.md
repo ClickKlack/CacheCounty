@@ -286,6 +286,7 @@ Felder je Land:
 |------------------------|---------|-------------------------------------------------------------------|
 | `code`                 | ✅      | ISO 3166-1 Alpha-2                                                |
 | `label`                | ✅      | Anzeigename in der Länder-Selectbox                               |
+| `pinned`               | –       | `true` = steht immer vorn (heute Deutschland). Alle übrigen Länder werden alphabetisch nach `label` sortiert; das erste Land ist die Voreinstellung |
 | `state_label`          | ✅      | Singular-Bezeichnung der übergeordneten Einheit (z. B. „Bundesland") |
 | `state_label_plural`   | –       | Plural-Form (z. B. „Bundesländer") – wird für Meilenstein-Texte verwendet |
 | `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Docroot (`public/`)            |

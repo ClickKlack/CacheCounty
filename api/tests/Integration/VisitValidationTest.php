@@ -96,13 +96,25 @@ class VisitValidationTest extends ApiTestCase
         $this->assertSame(['region_name' => null, 'notes' => null], $row);
     }
 
-    public function test_countries_endpoint_does_not_expose_the_pattern(): void
+    public function test_countries_are_ordered_germany_first_then_alphabetical(): void
+    {
+        $labels = array_column($this->request('GET', '/api/countries')['body']['data'], 'label');
+
+        $this->assertSame('Deutschland', $labels[0]);
+        $rest = array_slice($labels, 1);
+        $sorted = $rest;
+        (new Collator('de_DE'))->sort($sorted);
+        $this->assertSame($sorted, $rest);
+    }
+
+    public function test_countries_endpoint_does_not_expose_internal_fields(): void
     {
         $countries = $this->request('GET', '/api/countries')['body']['data'];
 
         $this->assertNotEmpty($countries);
         foreach ($countries as $country) {
             $this->assertArrayNotHasKey('region_code_pattern', $country);
+            $this->assertArrayNotHasKey('pinned', $country);
         }
     }
 }

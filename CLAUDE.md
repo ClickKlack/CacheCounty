@@ -83,7 +83,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 69 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 50 Unit- + 134 Integrationstests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 54 Unit- + 135 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -181,6 +181,11 @@ Landkreis → Bundesland wird zur Laufzeit clientseitig aus den GeoJSON-Properti
 abgeleitet (`region_code_property`, `state_code_property` …) – es gibt bewusst
 **keine** Regionen-Tabelle in der Datenbank. Wer eine solche Tabelle einführen will,
 bricht dieses Prinzip.
+
+**Reihenfolge der Länder** bestimmt `RegionController::sortCountries()`: Länder mit
+`"pinned": true` zuerst (heute nur DE), danach alphabetisch nach `label`, per `Collator`
+bzw. ohne `intl` mit Umlaut-Rückfall. Die Reihenfolge in `countries.json` spielt keine
+Rolle. Das erste Land ist die Voreinstellung der Karte.
 
 **Besuche werden serverseitig validiert, ohne das GeoJSON zu lesen.**
 `RegionController::parseCode()` prüft, dass das Land in `countries.json` steht und der

@@ -2,6 +2,7 @@
   {
     "code": "DE",
     "label": "Deutschland",
+    "pinned": true,
     "state_label": "Bundesland",
     "state_label_plural": "Bundesländer",
     "geojson": "data/de_landkreise.geojson",
