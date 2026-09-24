@@ -63,18 +63,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (token && username) state.session = { token, username, is_admin: isAdmin };
   }
 
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
   function renderAuthArea() {
-    els.authArea.innerHTML =
-      `<div class="auth-user">
-         <span class="auth-hint">Eingeloggt als</span>
-         <span class="auth-name">${escHtml(state.session.username)}</span>
-       </div>
-       <button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>`;
-    $('btn-logout').addEventListener('click', logout);
+    AuthMenu.render(els.authArea, {
+      username: state.session.username,
+      items: [
+        { label: 'Zur Karte', href: 'index.html' },
+        { label: 'Abmelden', onClick: () => logout(false) },
+        { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+          onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+      ],
+    });
   }
 
-  async function logout() {
-    try { await Api.logout(); } catch (_) {}
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch (_) {}
     sessionStorage.clear();
     location.href = 'index.html';
   }

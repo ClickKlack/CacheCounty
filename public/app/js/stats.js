@@ -504,23 +504,28 @@
     }
   }
 
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
   function renderAuthArea() {
     if (state.session) {
-      els.authArea.innerHTML = `
-        <div class="auth-user">
-          <span class="auth-hint">Angemeldet als</span>
-          <span class="auth-name">${state.session.username}</span>
-        </div>
-        <button id="btn-logout" class="btn btn-ghost">Abmelden</button>`;
-      document.getElementById('btn-logout').addEventListener('click', logout);
+      AuthMenu.render(els.authArea, {
+        username: state.session.username,
+        items: [
+          { label: 'Meine Karte', href: '/map/' + encodeURIComponent(state.session.username) },
+          { label: 'Abmelden', onClick: () => logout(false) },
+          { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+            onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+        ],
+      });
     } else {
-      els.authArea.innerHTML = `<button id="btn-login" class="btn btn-ghost">Anmelden</button>`;
-      document.getElementById('btn-login').addEventListener('click', openLoginDialog);
+      AuthMenu.render(els.authArea, {
+        items: [{ label: 'Anmelden', onClick: openLoginDialog }],
+      });
     }
   }
 
-  async function logout() {
-    try { await Api.logout(); } catch { /* ignorieren */ }
+  // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
+  async function logout(everywhere) {
+    try { await (everywhere ? Api.logoutAll() : Api.logout()); } catch { /* ignorieren */ }
     sessionStorage.removeItem('cc_token');
     sessionStorage.removeItem('cc_username');
     sessionStorage.removeItem('cc_is_admin');

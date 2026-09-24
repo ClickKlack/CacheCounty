@@ -36,9 +36,10 @@ public/                     Docroot – nur was hier liegt, ist per HTTP erreich
   .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
   api/index.php             Front-Controller: API-Header, Exception-Handler, Dispatch
   app/                      Frontend (statisch, <base href="/app/">)
-    index.html              Kartenansicht      → js/api.js, js/map.js, js/export.js, js/app.js
-    stats.html              Statistikseite     → js/api.js, js/stats.js
-    admin.html              Adminbereich       → js/api.js, js/admin.js
+    index.html              Kartenansicht      → js/api.js, js/auth-menu.js, js/map.js, js/export.js, js/app.js
+    stats.html              Statistikseite     → js/api.js, js/auth-menu.js, js/stats.js
+    admin.html              Adminbereich       → js/api.js, js/auth-menu.js, js/admin.js
+    js/auth-menu.js         Header-Menü aller Seiten (Desktop-Leiste / Mobil-Hamburger)
     js/export.js            GeoJSON-Export für c:geo (Leaflet-frei, testbar)
     css/app.css             ein Stylesheet für alle drei Seiten
   data/*.geojson            Geodaten – gitignored UND vom Deploy ausgeschlossen
@@ -52,6 +53,7 @@ api/                        REST-API (PHP), außerhalb des Docroots
 config/countries.json       Länderkonfiguration (Projektwurzel, nicht api/config/!)
 tests/api.test.js           Vitest für public/app/js/api.js
 tests/export.test.js        Vitest für public/app/js/export.js
+tests/auth-menu.test.js     Vitest für public/app/js/auth-menu.js (buildHtml)
 scripts/dev-router.php      Dev-Server-Router (bildet public/.htaccess nach)
 scripts/dev.sh              startet die lokale Entwicklungsumgebung
 scripts/dev.config.example.sh  Vorlage → scripts/dev.config.sh (gitignored)
@@ -73,7 +75,7 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 45 Tests
+npm test                          # Vitest, 52 Tests
 cd api && ./vendor/bin/phpunit    # PHPUnit: 31 Unit- + 95 Integrationstests
 
 # Abhängigkeiten
@@ -234,11 +236,18 @@ dort bleibt der Wert `false` – sonst könnte jeder Client seine IP frei wähle
 ## 6. Frontend-Konventionen
 
 **Kein Modulsystem.** Jede Datei ist eine IIFE, die entweder ein Global exportiert
-(`Api`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
+(`Api`, `AuthMenu`, `CacheMap`, `CacheExport`) oder alles in einem `DOMContentLoaded`-Handler
 kapselt (`app.js`, `admin.js`). Ladereihenfolge in den HTML-Dateien ist relevant:
-`api.js` zuerst, dann `map.js`, `export.js`, zuletzt `app.js`.
+`api.js` zuerst, dann `auth-menu.js`, `map.js`, `export.js`, zuletzt `app.js`.
 
-**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js` und `export.js`
+**Header-Menü.** Alle drei Seiten rendern Anmeldestatus und Aktionen über
+`AuthMenu.render(container, { username, items })`. Ein Item ist entweder ein Link
+(`href`) oder eine Aktion (`onClick`). Ab 600 px stehen die Items nebeneinander im
+Header, darunter hinter einem ☰-Button. Die Umschaltung läuft rein per CSS
+(`.auth-menu` in `app.css`). Neue Header-Aktionen deshalb als Item ergänzen, nicht
+als eigenes HTML neben dem Menü, sonst läuft der Header auf dem Handy über.
+
+**Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js`, `export.js` und `AuthMenu.buildHtml()`
 kommen ohne Leaflet und ohne DOM-Bibliotheken aus und werden in den Vitest-Tests
 über `new Function(...)` mit gemockten Globals ausgewertet. Wer neue Logik
 testbar halten will, legt sie in ein solches Modul statt in `app.js` – dort ist

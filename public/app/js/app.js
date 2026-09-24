@@ -158,73 +158,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (token && username) state.session = { token, username, is_admin: isAdmin };
   }
 
-  // Header-Aktionen: auf dem Desktop nebeneinander, unter 600 px als Hamburger-Menü
-  // (Umschaltung rein per CSS, siehe .auth-menu in app.css)
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
   function renderAuthArea() {
     const statsUser = state.pageUser || state.session?.username;
-    const statsHref = statsUser ? '/stats/' + encodeURIComponent(statsUser) : null;
-    const statsLink = statsHref
-      ? `<a href="${statsHref}" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Statistiken</a>`
-      : '';
-
-    let userInfo = '';
-    let menuItems;
+    const statsItem = statsUser
+      ? [{ label: 'Statistiken', href: '/stats/' + encodeURIComponent(statsUser) }]
+      : [];
 
     if (state.session) {
-      const name = escHtml(state.session.username);
-      userInfo =
-        `<div class="auth-user">
-           <span class="auth-hint">Eingeloggt als</span>
-           <span class="auth-name">${name}</span>
-         </div>`;
-      menuItems =
-        `<div class="auth-menu-user">
-           <span class="auth-hint">Eingeloggt als</span>
-           <span class="auth-name">${name}</span>
-         </div>` +
-        (state.session.is_admin
-          ? `<a href="admin.html" class="btn btn-ghost" style="font-size:0.78rem;text-decoration:none">Admin</a>`
-          : '') +
-        statsLink +
-        `<button id="btn-logout" class="btn btn-ghost" style="font-size:0.78rem">Abmelden</button>` +
-        `<button id="btn-logout-all" class="btn btn-ghost" style="font-size:0.78rem"
-                 title="Beendet die Anmeldung auf allen Geräten und Browsern">Überall abmelden</button>`;
+      AuthMenu.render(els.authArea, {
+        username: state.session.username,
+        items: [
+          ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
+          ...statsItem,
+          { label: 'Abmelden', onClick: () => logout(false) },
+          { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
+            onClick: () => { if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true); } },
+        ],
+      });
     } else {
-      menuItems = statsLink + `<button id="btn-login" class="btn btn-ghost">Anmelden</button>`;
+      AuthMenu.render(els.authArea, {
+        items: [...statsItem, { label: 'Anmelden', onClick: () => openDialog('login') }],
+      });
     }
-
-    els.authArea.innerHTML =
-      userInfo +
-      `<button id="auth-menu-toggle" class="auth-menu-toggle" type="button"
-               aria-label="Menü" aria-expanded="false" aria-controls="auth-menu">☰</button>
-       <div id="auth-menu" class="auth-menu">${menuItems}</div>`;
-
-    $('auth-menu-toggle').addEventListener('click', e => {
-      e.stopPropagation();
-      toggleAuthMenu();
-    });
-    $('btn-login')?.addEventListener('click', () => { closeAuthMenu(); openDialog('login'); });
-    $('btn-logout')?.addEventListener('click', () => { closeAuthMenu(); logout(false); });
-    $('btn-logout-all')?.addEventListener('click', () => {
-      closeAuthMenu();
-      if (confirm('Auf allen Geräten und Browsern abmelden?')) logout(true);
-    });
   }
-
-  function toggleAuthMenu(open) {
-    const menu = $('auth-menu');
-    if (!menu) return;
-    const isOpen = open ?? !menu.classList.contains('open');
-    menu.classList.toggle('open', isOpen);
-    $('auth-menu-toggle')?.setAttribute('aria-expanded', String(isOpen));
-  }
-
-  function closeAuthMenu() { toggleAuthMenu(false); }
-
-  // Menü schließt bei Klick außerhalb (Klicks auf Einträge schließen es über ihre Handler)
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#auth-menu')) closeAuthMenu();
-  });
 
   // everywhere = true beendet alle Sessions des Nutzers, nicht nur die aktuelle
   async function logout(everywhere) {
@@ -619,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
   els.dialogClose.addEventListener('click', closeDialog);
   els.loginClose.addEventListener('click',  closeDialog);
   els.backdrop.addEventListener('click',    closeDialog);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDialog(); closeAuthMenu(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDialog(); });
 
   // ── Boot ──────────────────────────────────────────────────────
 
