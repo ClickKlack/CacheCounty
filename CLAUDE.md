@@ -47,7 +47,8 @@ api/                        REST-API (PHP), außerhalb des Docroots
   src/Shared/               Router, Request, Response, Database, Guard
   src/{Auth,Region,Admin,Stats}/*Controller.php
   config/{app,database}.php Templates; *.local.php überschreibt (gitignored)
-  tests/                    PHPUnit (RequestTest, RouterTest)
+  tests/                    PHPUnit: Unit-Tests (Request, Router, Routen-Vollständigkeit)
+  tests/Integration/        PHPUnit gegen Testdatenbank + Dev-Server (Rollen-Matrix u. a.)
 config/countries.json       Länderkonfiguration (Projektwurzel, nicht api/config/!)
 tests/api.test.js           Vitest für public/app/js/api.js
 tests/export.test.js        Vitest für public/app/js/export.js
@@ -73,7 +74,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 44 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit, 28 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 31 Unit- + 85 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -81,7 +82,25 @@ npm ci
 ```
 
 Beide Suites laufen aktuell grün. Vor jedem Commit beide ausführen – die CI führt
-zusätzlich `composer validate --strict` und `php -l` über `api/src/` aus.
+zusätzlich `composer validate --strict` und `php -l` über `api/src/` aus. Die CI läuft
+auch für Pull Requests.
+
+**Integrationstests** (`api/tests/Integration/`) laufen nur, wenn
+`CACHECOUNTY_TEST_DB_NAME` gesetzt ist, sonst werden sie übersprungen. Lokal gibt es
+dafür die Datenbank `CacheCounty_test`, Zugang wie die Entwicklungs-DB. Einrichtung
+siehe README → „Tests". Mechanik:
+
+- `ApiTestCase` startet einmal pro Lauf `php -S` mit `scripts/dev-router.php` auf einem
+  freien Port und reicht die Test-Konfiguration über `CACHECOUNTY_DB_CONFIG` und
+  `CACHECOUNTY_APP_CONFIG` durch. Diese Variablen werten `Database` und `Config` vor den
+  `*.local.php` aus.
+- Das Schema wird aus `database.sql` aufgebaut; vor jedem Test werden alle Tabellen
+  geleert und feste Fixtures angelegt (Admin, User A mit Besuch, User B, deaktivierter
+  Admin, je eine Session mit bekanntem Token).
+- Schutz: Der Datenbankname muss auf `_test` enden, sonst bricht der Lauf ab.
+- `RouteMatrix` legt den erwarteten Status je Route und Rolle fest.
+  `RoutesCompletenessTest` (Unit, ohne DB) verlangt für jede Route in `routes.php`
+  einen Eintrag. **Neue Route = neuer Matrix-Eintrag.**
 
 ### Lokal starten
 
@@ -352,9 +371,10 @@ Vereinfachung auf 1,1 MB – das ist die `.bak`-Datei; die aktive Datei wurde sp
 gegen eine größere getauscht. Das kostet Ladezeit auf jeder Kartenseite und ist der
 naheliegendste Performance-Hebel.
 
-**Keine Tests für Controller oder Datenbank.** Abgedeckt sind `Request`, `Router` und
-`api.js` – also Routing- und URL-Mechanik. Auth-Flow, Guards, Visit-CRUD und
-Admin-Logik sind ungetestet.
+**Controller-Tests nur über HTTP.** Die Controller hängen am statischen
+`Database::get()` und beenden per `exit` – isolierte Unit-Tests sind deshalb nicht
+möglich. Abgedeckt werden sie über die Integrationstests (Autorisierung, Objektebene,
+Auth-Flow). Fachlogik wie Statistiken und Rangliste ist darüber hinaus nicht geprüft.
 
 ---
 

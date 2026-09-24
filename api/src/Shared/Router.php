@@ -20,6 +20,16 @@ class Router
         $this->routes[] = compact('method', 'path', 'handler');
     }
 
+    /**
+     * Registered routes in registration order (used by the route completeness test).
+     *
+     * @return list<array{method: string, path: string, handler: array}>
+     */
+    public function routes(): array
+    {
+        return $this->routes;
+    }
+
     public function dispatch(): void
     {
         $method = $this->request->method();

@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php" colors="true">
+<phpunit bootstrap="tests/bootstrap.php" colors="true">
   <testsuites>
-    <testsuite name="CacheCounty">
+    <!-- Ohne Datenbank, läuft immer -->
+    <testsuite name="unit">
       <directory>tests</directory>
+      <exclude>tests/Integration</exclude>
+    </testsuite>
+    <!-- Gegen echte Testdatenbank; ohne CACHECOUNTY_TEST_DB_NAME übersprungen -->
+    <testsuite name="integration">
+      <directory>tests/Integration</directory>
     </testsuite>
   </testsuites>
   <source>

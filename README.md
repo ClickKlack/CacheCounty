@@ -142,3 +142,45 @@ cachecounty/
 | GET    | /api/leaderboard                  | –       |
 
 Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`.
+
+---
+
+## Tests
+
+```bash
+npm test                                     # Vitest (Frontend)
+cd api && ./vendor/bin/phpunit               # PHPUnit: Unit- und Integrationstests
+cd api && ./vendor/bin/phpunit --testsuite unit   # nur Unit-Tests, ohne Datenbank
+```
+
+### Integrationstests
+
+Die Integrationstests rufen die echte API auf: Sie starten einen PHP-Dev-Server,
+bauen das Schema aus `database.sql` in einer **eigenen Testdatenbank** auf und prüfen
+unter anderem die Autorisierungs-Matrix (jede Route × jede Rolle). Ohne Testdatenbank
+werden sie übersprungen.
+
+Einmalig eine Testdatenbank anlegen. Der Name **muss auf `_test` enden**, sonst
+brechen die Tests ab, denn sie leeren vor jedem Test alle Tabellen:
+
+```sql
+CREATE DATABASE CacheCounty_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Dann mit Umgebungsvariablen starten:
+
+```bash
+export CACHECOUNTY_TEST_DB_NAME=CacheCounty_test
+export CACHECOUNTY_TEST_DB_HOST=localhost      # Standard: localhost
+export CACHECOUNTY_TEST_DB_USER=…
+export CACHECOUNTY_TEST_DB_PASS=…
+cd api && ./vendor/bin/phpunit
+```
+
+Die CI führt die Integrationstests mit einem MariaDB-Service-Container aus, auch für
+Pull Requests. Das Log des Test-Servers liegt unter
+`$TMPDIR/cachecounty-integration-server.log`.
+
+**Neue Route?** Jede Route aus `api/src/routes.php` braucht einen Eintrag in
+`api/tests/Integration/RouteMatrix.php` mit dem erwarteten Status je Rolle, sonst
+schlägt `RoutesCompletenessTest` fehl. Dieser Test läuft auch ohne Datenbank.
