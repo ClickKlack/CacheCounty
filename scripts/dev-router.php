@@ -22,15 +22,15 @@ if (preg_match('/^api\//', $path) || $path === 'sitemap.xml') {
     return true;
 }
 
-// /map/{username} → index.html
-if (preg_match('/^map\/[^\/]+\/?$/', $path)) {
+// /map/{username}[/{land}] und /country/{land} → index.html
+if (preg_match('/^map\/[^\/]+(\/[a-zA-Z]{2})?\/?$/', $path) || preg_match('/^country\/[a-zA-Z]{2}\/?$/', $path)) {
     header('Content-Type: text/html; charset=utf-8');
     readfile($public . '/app/index.html');
     return true;
 }
 
-// /stats/{username} → stats.html
-if (preg_match('/^stats\/[^\/]+\/?$/', $path)) {
+// /stats/{username}[/{land}] → stats.html
+if (preg_match('/^stats\/[^\/]+(\/[a-zA-Z]{2})?\/?$/', $path)) {
     header('Content-Type: text/html; charset=utf-8');
     readfile($public . '/app/stats.html');
     return true;

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     countries:      [],     // full country configs from API
     currentCountry: null,   // active country config object
     pageUser:       null,   // username from URL /map/{username}
+    urlCountry:     null,   // Ländercode aus der Adresse (/map/{user}/{cc}, /country/{cc}) oder null
     visits:         [],     // visits array from API
     stateMap:       {},     // { stateCode: { name, code, total, regions[] } }
     hiddenStates:   new Set(), // stateCodes currently hidden
@@ -67,10 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Utilities ─────────────────────────────────────────────────
 
-  function getPageUsername() {
-    const match = location.pathname.match(/^\/map\/([^/]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
-  }
 
   function isOwner() {
     if (!state.session) return false;
@@ -163,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderAuthArea() {
     const statsUser = state.pageUser || state.session?.username;
     const statsItem = statsUser
-      ? [{ label: 'Statistiken', href: '/stats/' + encodeURIComponent(statsUser) }]
+      ? [{ label: 'Statistiken', href: AppRoutes.statsPath(statsUser, state.urlCountry) }]
       : [];
 
     if (state.session) {
@@ -194,20 +191,24 @@ document.addEventListener('DOMContentLoaded', () => {
     closeDialog();
   }
 
-  // Titel, Beschreibung und canonical-URL je Karte (page-meta.js)
+  // Titel, Beschreibung und canonical-URL je Karte (page-meta.js). Steht ein Land in der
+  // Adresse, gehört es zu Titel und canonical – /map/X/at ist eine eigene Seite.
   function updatePageMeta() {
-    const user = state.pageUser;
+    const user  = state.pageUser;
+    const label = state.urlCountry && state.currentCountry?.label;
+    const path  = AppRoutes.mapPath(user, state.urlCountry);
+
     if (!user) {
-      PageMeta.set({ path: '/' });
+      PageMeta.set(label ? { title: `${label} – CacheCounty`, path } : { path });
       return;
     }
-    const heading = `Karte von ${user}`;
+    const heading = `Karte von ${user}` + (label ? ` (${label})` : '');
     $('page-title').textContent = heading;
     PageMeta.set({
       title:       `${heading} – CacheCounty`,
       description: `Welche Landkreise, Bezirke und Kommunen hat ${user} schon besucht? ` +
                    `Die Geocaching-Karte von ${user} bei CacheCounty.`,
-      path:        '/map/' + encodeURIComponent(user),
+      path,
     });
   }
 
@@ -416,13 +417,20 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(c => `<option value="${escHtml(c.code)}">${escHtml(c.label)}</option>`)
       .join('');
 
-    await switchCountry(state.countries[0]?.code || 'DE');
+    // Land aus der Adresse, sonst das erste (Deutschland). Ein unbekanntes Land in der
+    // Adresse wird verworfen – die Seite zeigt dann das erste Land.
+    const fromUrl = state.countries.find(c => c.code === state.urlCountry);
+    if (!fromUrl) state.urlCountry = null;
+    await switchCountry(fromUrl?.code || state.countries[0]?.code || 'DE');
   }
 
   async function switchCountry(code) {
     const country = state.countries.find(c => c.code === code);
     if (!country) return;
     state.currentCountry = country;
+    els.countrySelect.value = code;
+    updatePageMeta();
+    renderAuthArea();   // Statistik-Link zeigt aufs gewählte Land
 
     showLoader();
 
@@ -458,7 +466,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStatePanel();
   }
 
-  els.countrySelect.addEventListener('change', e => switchCountry(e.target.value));
+  // Auswahl im Dropdown in die Adresse übernehmen (ohne neuen Verlaufseintrag),
+  // damit sich jede Ansicht direkt kopieren und teilen lässt
+  els.countrySelect.addEventListener('change', e => {
+    state.urlCountry = e.target.value;
+    history.replaceState(null, '', AppRoutes.mapPath(state.pageUser, state.urlCountry));
+    switchCountry(e.target.value);
+  });
 
   // ── Region dialog ─────────────────────────────────────────────
 
@@ -608,7 +622,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) { /* nicht eingeloggt */ }
     }
 
-    state.pageUser = getPageUsername();
+    const route = AppRoutes.parse(location.pathname);
+    state.pageUser   = route.user;
+    state.urlCountry = route.country;
     updatePageMeta();
     renderAuthArea();
     renderOwnerBadge();
