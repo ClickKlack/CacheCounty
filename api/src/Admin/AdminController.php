@@ -46,9 +46,12 @@ class AdminController
         $email    = trim((string) $request->input('email', ''));
         $isAdmin  = (bool) $request->input('is_admin', false);
 
-        // Validation
-        if (!preg_match('/^[a-zA-Z0-9_\-]{2,60}$/', $username)) {
-            Response::error('Username must be 2–60 characters and may only contain letters, numbers, _ and -.');
+        // Validation: usernames follow Geocaching names, so spaces, umlauts and characters
+        // like * . ' ( ) are allowed. Excluded: "/" and "\" (a "/" in a path segment is
+        // rejected by Apache even when encoded) and control/invisible characters.
+        // Safe because every output escapes the name and every URL encodes it.
+        if (!preg_match('/^[^\p{C}\/\x5C]{2,60}$/u', $username)) {   // \x5C = backslash
+            Response::error('Username must be 2–60 characters and must not contain "/", "\\" or control characters.');
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {

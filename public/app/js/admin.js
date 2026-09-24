@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="user-cell">
               <div class="user-avatar">${escHtml(initials)}</div>
               <div class="user-cell-info">
-                <a href="/map/${escHtml(u.username)}" target="_blank" class="user-link">${escHtml(u.username)}</a>
+                <a href="/map/${escHtml(encodeURIComponent(u.username))}" target="_blank" class="user-link">${escHtml(u.username)}</a>
                 ${adminBadge}
               </div>
             </div>

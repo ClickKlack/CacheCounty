@@ -32,7 +32,7 @@ class SitemapController
 
         $entries = [$this->entry($base . '/', null)];
         foreach ($rows as $row) {
-            $user    = rawurlencode($row['username']);
+            $user    = self::encodeLikeJs($row['username']);
             $lastmod = substr((string) $row['last_change'], 0, 10);
             $entries[] = $this->entry("$base/map/$user", $lastmod);
             $entries[] = $this->entry("$base/stats/$user", $lastmod);
@@ -45,6 +45,16 @@ class SitemapController
 
         // Crawlers may cache it for an hour; the list only changes with new visits
         Response::raw($xml, 'application/xml; charset=utf-8', ['Cache-Control: public, max-age=3600']);
+    }
+
+    /**
+     * Encodes a path segment exactly like JavaScript's encodeURIComponent(), which the
+     * frontend uses for links and canonical URLs – so the sitemap lists the same URL
+     * (e.g. /map/Ahnungslos* rather than /map/Ahnungslos%2A).
+     */
+    public static function encodeLikeJs(string $segment): string
+    {
+        return strtr(rawurlencode($segment), ['%21' => '!', '%2A' => '*', '%27' => "'", '%28' => '(', '%29' => ')']);
     }
 
     private function entry(string $url, ?string $lastmod): string
