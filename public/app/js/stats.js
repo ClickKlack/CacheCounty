@@ -28,7 +28,6 @@
     heroAvatar:       document.getElementById('hero-avatar'),
     heroTitle:        document.getElementById('hero-title'),
     heroSub:          document.getElementById('hero-sub'),
-    heroMapLink:      document.getElementById('hero-map-link'),
     countriesList:    document.getElementById('countries-list'),
     timelineChart:    document.getElementById('timeline-chart'),
     timelineHint:     document.getElementById('timeline-hint'),
@@ -177,7 +176,6 @@
     els.heroAvatar.textContent = initials;
     els.heroTitle.textContent  = username;
     els.heroSub.textContent    = 'Statistiken & Fortschritt';
-    els.heroMapLink.href       = '/map/' + encodeURIComponent(username);
   }
 
   // ── Ländervergleich ────────────────────────────────────────────────────────
@@ -505,13 +503,20 @@
     }
   }
 
-  // Header-Aktionen über das gemeinsame Menü (auth-menu.js)
+  // Header-Aktionen über das gemeinsame Menü (auth-menu.js).
+  // Kartenlinks: die Karte des angezeigten Nutzers und – falls das eine fremde
+  // Statistik ist – zusätzlich die eigene.
   function renderAuthArea() {
+    const isOwnStats = state.session
+      && state.session.username.toLowerCase() === String(state.username).toLowerCase();
+    const viewedMap = { label: 'Karte von ' + state.username, href: '/map/' + encodeURIComponent(state.username) };
+
     if (state.session) {
       AuthMenu.render(els.authArea, {
         username: state.session.username,
         items: [
           ...(state.session.is_admin ? [{ label: 'Admin', href: 'admin.html' }] : []),
+          ...(isOwnStats ? [] : [viewedMap]),
           { label: 'Meine Karte', href: '/map/' + encodeURIComponent(state.session.username) },
           { label: 'Abmelden', onClick: () => logout(false) },
           { label: 'Überall abmelden', title: 'Beendet die Anmeldung auf allen Geräten und Browsern',
@@ -520,7 +525,7 @@
       });
     } else {
       AuthMenu.render(els.authArea, {
-        items: [{ label: 'Anmelden', onClick: openLoginDialog }],
+        items: [viewedMap, { label: 'Anmelden', onClick: openLoginDialog }],
       });
     }
   }

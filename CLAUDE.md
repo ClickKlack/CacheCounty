@@ -250,10 +250,12 @@ kapselt (`app.js`, `admin.js`). Ladereihenfolge in den HTML-Dateien ist relevant
 
 **Header-Menü.** Alle drei Seiten rendern Anmeldestatus und Aktionen über
 `AuthMenu.render(container, { username, items })`. Ein Item ist entweder ein Link
-(`href`) oder eine Aktion (`onClick`). Ab 600 px stehen die Items nebeneinander im
+(`href`) oder eine Aktion (`onClick`). Ab 1100 px stehen die Items nebeneinander im
 Header, darunter hinter einem ☰-Button. Die Umschaltung läuft rein per CSS
-(`.auth-menu` in `app.css`). Neue Header-Aktionen deshalb als Item ergänzen, nicht
-als eigenes HTML neben dem Menü, sonst läuft der Header auf dem Handy über.
+(`.auth-menu` in `app.css`) und hat einen eigenen Breakpoint: Die längste Leiste
+(fremde Statistik als Admin, fünf Einträge) braucht gut 1050 px. Neue Header-Aktionen
+deshalb als Item ergänzen, nicht als eigenes HTML neben dem Menü, und bei einem
+zusätzlichen Eintrag die Breite prüfen, sonst läuft der Header über.
 
 **Testbarkeit erkauft man sich über Browser-Freiheit.** `api.js`, `export.js` und `AuthMenu.buildHtml()`
 kommen ohne Leaflet und ohne DOM-Bibliotheken aus und werden in den Vitest-Tests
