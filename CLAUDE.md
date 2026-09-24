@@ -34,7 +34,7 @@ funktionieren. Abhängigkeiten werden per CDN eingebunden, nicht gebündelt.
 ```
 public/                     Docroot – nur was hier liegt, ist per HTTP erreichbar
   .htaccess                 Produktiv-Rewrites für /api, /map/*, /stats/*
-  api/index.php             Front-Controller: CORS, Exception-Handler, Dispatch
+  api/index.php             Front-Controller: API-Header, Exception-Handler, Dispatch
   app/                      Frontend (statisch, <base href="/app/">)
     index.html              Kartenansicht      → js/api.js, js/map.js, js/export.js, js/app.js
     stats.html              Statistikseite     → js/api.js, js/stats.js
@@ -73,7 +73,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 44 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit, 24 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit, 28 Tests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -191,8 +191,19 @@ gleichpräfixigen Platzhalterrouten einfügen.
 **Alle Zeitstempel sind UTC.** Dynamische Spaltennamen (z. B. in
 `AdminController::updateUser`) nur aus einer festen Allowlist bauen.
 
-**Fehlerausgabe.** `index.php` fängt alle `Throwable` und antwortet generisch mit 500.
-Details werden nicht geleakt – aber auch **nicht geloggt** (siehe „Bekannte Schwachstellen").
+**Fehlerausgabe.** `index.php` fängt alle `Throwable`, schreibt sie per `error_log()`
+ins PHP-Fehlerlog des Servers und antwortet dem Client generisch mit 500. Details landen
+nie in der Antwort.
+
+**Konfiguration** immer über `Config::app()` lesen (lädt `app.local.php`, sonst `app.php`,
+einmal pro Request). In Tests lässt sie sich per `Config::override()` ersetzen.
+
+**Cookie-Flag `Secure`** folgt `base_url` (`Config::isHttps()`), nicht `$_SERVER['HTTPS']` –
+hinter dem Reverse-Proxy des Hosters fehlt die Variable oft.
+
+**Client-IP** (`Request::ip()`) nutzt `CF-Connecting-IP` nur bei
+`trust_cloudflare = true` in `app.local.php`. Produktion läuft nicht hinter Cloudflare,
+dort bleibt der Wert `false` – sonst könnte jeder Client seine IP frei wählen.
 
 ---
 
@@ -321,19 +332,11 @@ Der Reihe nach, grob nach Relevanz:
 existiert er nirgends. Abgesichert wird derzeit nur durch `SameSite=Lax` am Cookie –
 das deckt einfache Cross-Site-POSTs ab, ersetzt aber keine Token-Prüfung.
 
-**`Access-Control-Allow-Origin: *`** in `public/api/index.php` ist sehr weit gefasst.
-Mit Wildcard blockiert der Browser zwar `credentials: 'include'`, der Bearer-Token-Pfad
-aus `sessionStorage` ist aber origin-gebunden und damit nicht betroffen. Beim
-Einschränken auf eine konkrete Origin daran denken, dass das Frontend heute
-same-origin ausgeliefert wird.
+**Keine CORS-Header.** Die API setzt bewusst kein `Access-Control-Allow-Origin` – das
+Frontend wird same-origin ausgeliefert. Ein Frontend auf anderer Origin (etwa eine
+API-Subdomain) funktioniert deshalb nicht ohne Anpassung.
 
-**Keine Fehlerprotokollierung.** Der globale Exception-Handler verwirft die Exception
-vollständig. Produktionsfehler sind dadurch praktisch nicht diagnostizierbar – ein
-`error_log()` im Handler wäre der kleinste sinnvolle Schritt.
-
-**Session-TTL: Kommentar sagt 30 Tage, `SESSION_TTL_DAYS` steht auf 365.** Der Code
-gewinnt; der Kommentar in `AuthController` ist falsch. Vor einer Änderung klären,
-welcher Wert gewollt ist.
+**Sessions laufen 365 Tage** (`SESSION_TTL_DAYS`), bewusst so entschieden.
 
 **`stats.js` liest `cc_is_admin`, geschrieben wird `cc_admin`** (`app.js:135`).
 Auf der Statistikseite ist das Admin-Flag deshalb immer `false`. Aktuell folgenlos,

@@ -10,11 +10,11 @@ use CacheCounty\Shared\Router;
 use CacheCounty\Shared\Request;
 use CacheCounty\Shared\Response;
 
-// CORS headers
+// No CORS headers: the frontend is served from the same origin, cross-origin
+// access to the API is not intended.
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('X-Content-Type-Options: nosniff');
+header('Cache-Control: no-store');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -22,6 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 set_exception_handler(function (Throwable $e): void {
+    // Log details for diagnosis, but never send them to the client
+    error_log('[CacheCounty] ' . $e);
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
     exit;

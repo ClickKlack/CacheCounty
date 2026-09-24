@@ -16,4 +16,8 @@ return [
     'smtp_secure'    => 'tls',   // 'tls', 'ssl' oder '' für keine Verschlüsselung
     'smtp_user'      => 'smtp-user@example.com',
     'smtp_pass'      => 'smtp-password',
+
+    // Nur auf true setzen, wenn der Server ausschließlich über Cloudflare erreichbar ist.
+    // Sonst kann jeder Client per CF-Connecting-IP-Header eine beliebige IP vortäuschen.
+    'trust_cloudflare' => false,
 ];

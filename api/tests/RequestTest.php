@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use CacheCounty\Shared\Config;
 use CacheCounty\Shared\Request;
 use PHPUnit\Framework\TestCase;
 
@@ -14,7 +15,13 @@ class RequestTest extends TestCase
         $_SERVER  = [];
         $_GET     = [];
         $_COOKIE  = [];
+        Config::override(['trust_cloudflare' => false]);
         $this->req = new Request();
+    }
+
+    protected function tearDown(): void
+    {
+        Config::override(null);
     }
 
     // ── method() ──────────────────────────────────────────────────
@@ -111,15 +118,25 @@ class RequestTest extends TestCase
         $this->assertSame('203.0.113.10', $this->req->ip());
     }
 
-    public function test_ip_prefers_cloudflare_header(): void
+    public function test_ip_ignores_cloudflare_header_by_default(): void
     {
-        $_SERVER['REMOTE_ADDR']              = '203.0.113.10';
-        $_SERVER['HTTP_CF_CONNECTING_IP']    = '198.51.100.42';
+        // Without trust_cloudflare the header is client-controlled and must not win
+        $_SERVER['REMOTE_ADDR']           = '203.0.113.10';
+        $_SERVER['HTTP_CF_CONNECTING_IP'] = '198.51.100.42';
+        $this->assertSame('203.0.113.10', $this->req->ip());
+    }
+
+    public function test_ip_prefers_cloudflare_header_when_trusted(): void
+    {
+        Config::override(['trust_cloudflare' => true]);
+        $_SERVER['REMOTE_ADDR']           = '203.0.113.10';
+        $_SERVER['HTTP_CF_CONNECTING_IP'] = '198.51.100.42';
         $this->assertSame('198.51.100.42', $this->req->ip());
     }
 
     public function test_ip_ignores_invalid_cloudflare_header(): void
     {
+        Config::override(['trust_cloudflare' => true]);
         $_SERVER['REMOTE_ADDR']           = '203.0.113.10';
         $_SERVER['HTTP_CF_CONNECTING_IP'] = 'not-an-ip';
         $this->assertSame('203.0.113.10', $this->req->ip());
@@ -137,5 +154,25 @@ class RequestTest extends TestCase
         $_SERVER['REMOTE_ADDR']          = '127.0.0.1';
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '10.0.0.2, 192.168.1.1, 203.0.113.99';
         $this->assertSame('203.0.113.99', $this->req->ip());
+    }
+
+    // ── Config::isHttps() ─────────────────────────────────────────
+
+    public function test_isHttps_true_for_https_base_url(): void
+    {
+        Config::override(['base_url' => 'https://example.com']);
+        $this->assertTrue(Config::isHttps());
+    }
+
+    public function test_isHttps_false_for_http_base_url(): void
+    {
+        Config::override(['base_url' => 'http://localhost:8080']);
+        $this->assertFalse(Config::isHttps());
+    }
+
+    public function test_isHttps_false_without_base_url(): void
+    {
+        Config::override([]);
+        $this->assertFalse(Config::isHttps());
     }
 }
