@@ -99,9 +99,13 @@
 
   function parseUsername() {
     const parts = location.pathname.split('/').filter(Boolean);
-    // Erwartet: /stats/{username}
-    if (parts[0] === 'stats' && parts[1]) return parts[1];
-    return null;
+    // Erwartet: /stats/{username} – kodiert (z. B. %2A oder %20), deshalb dekodieren
+    if (parts[0] !== 'stats' || !parts[1]) return null;
+    try {
+      return decodeURIComponent(parts[1]);
+    } catch (_) {
+      return parts[1];   // ungültige Kodierung: unverändert übernehmen
+    }
   }
 
   function buildVisitsIndex(_statsData) {

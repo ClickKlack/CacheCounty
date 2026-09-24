@@ -116,6 +116,29 @@ class RouterTest extends TestCase
         $this->assertNotNull(TestController::$capturedParams);
     }
 
+    public function test_url_parameters_are_decoded(): void
+    {
+        $req    = $this->makeRequest('GET', '/api/map/Ahnungslos%2A%20J%C3%B6rg');
+        $router = new Router($req);
+        $router->get('/api/map/{username}', [TestController::class, 'handle'], Access::Public);
+
+        $router->dispatch();
+
+        $this->assertSame('Ahnungslos* Jörg', TestController::$capturedParams['username']);
+    }
+
+    public function test_encoded_slash_does_not_split_a_segment(): void
+    {
+        // %2F wird erst nach dem Matching dekodiert – die Route {username} passt trotzdem
+        $req    = $this->makeRequest('GET', '/api/map/a%2Fb');
+        $router = new Router($req);
+        $router->get('/api/map/{username}', [TestController::class, 'handle'], Access::Public);
+
+        $router->dispatch();
+
+        $this->assertSame('a/b', TestController::$capturedParams['username']);
+    }
+
     public function test_dispatch_matches_delete_route(): void
     {
         $req    = $this->makeRequest('DELETE', '/api/regions/DE-09162/visit');

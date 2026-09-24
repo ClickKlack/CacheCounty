@@ -88,7 +88,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 69 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 54 Unit- + 147 Integrationstests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 57 Unit- + 167 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -178,7 +178,16 @@ Adresse meist schlicht nicht in `users` angelegt – das ist kein Fehler.
 `/api/*` mit dem Backend. Es gibt kein serverseitiges Rendering – `/map/{username}`
 und `/stats/{username}` liefern dieselben statischen HTML-Dateien aus; der Username
 wird clientseitig aus `location.pathname` geparst (`getPageUsername()` in `app.js`,
-`parseUsername()` in `stats.js`).
+`parseUsername()` in `stats.js`) – beide **dekodieren** den Namen.
+
+**Nutzernamen folgen Geocaching-Namen** (z. B. `Ahnungslos*`, `Max Mustermann`, Umlaute).
+Erlaubt sind 2–60 sichtbare Zeichen außer `/` und `\` (`AdminController::createUser`).
+Einen `/` weist Apache im Pfad auch kodiert ab. Deshalb gilt überall:
+- In URLs immer `encodeURIComponent()` (JS) bzw. `SitemapController::encodeLikeJs()` (PHP),
+  damit Links, canonical und Sitemap dieselbe Schreibweise haben.
+- Im HTML immer `escHtml()` oder `textContent`.
+- Der Router dekodiert Pfadparameter (`rawurldecode`) nach dem Matching;
+  `/api/map/Ahnungslos%2A` und `/api/map/Ahnungslos*` treffen denselben Nutzer.
 
 **Neue Länder ohne Codeänderung.** Ein Land besteht aus einem Eintrag in
 `config/countries.json` plus einer GeoJSON-Datei in `public/data/`. Die Zuordnung

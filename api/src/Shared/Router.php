@@ -58,9 +58,11 @@ class Router
             if (preg_match($pattern, $uri, $matches)) {
                 array_shift($matches); // remove full match
 
-                // Map positional matches to named params
+                // Map positional matches to named params. The URI is matched raw (so an
+                // encoded "/" cannot split a segment) and each value decoded afterwards –
+                // "/api/map/Ahnungslos%2A" and "/api/map/Ahnungslos*" hit the same user.
                 preg_match_all('/\{([^}]+)\}/', $route['path'], $paramNames);
-                $params = array_combine($paramNames[1], $matches);
+                $params = array_combine($paramNames[1], array_map('rawurldecode', $matches));
                 $this->request->setParams($params);
 
                 // CSRF protection for state-changing requests, then access control
