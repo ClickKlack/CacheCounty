@@ -89,7 +89,7 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 92 Tests
+npm test                          # Vitest, 98 Tests
 cd api && ./vendor/bin/phpunit    # PHPUnit: 57 Unit- + 181 Integrationstests
 
 # Abhängigkeiten
@@ -358,6 +358,14 @@ Frische selbst, und nach einem Deploy liefen Smartphones tagelang mit alten Skri
   würde von den `<FilesMatch>`-Regeln überschrieben, das wurde mit Apache getestet.
 Deshalb Dateien in `vendor/` nie unter gleichem Pfad ersetzen, sondern immer ein neues
 Versionsverzeichnis anlegen.
+
+**Cache-Busting:** Eigene Skripte und Styles stehen in den HTML-Dateien als
+`js/app.js?v=dev` bzw. `css/app.css?v=dev`. Der Deploy-Job setzt dort den Commit ein und
+bricht ab, falls ein Platzhalter übrig bleibt. So zeigt jedes neue HTML auf neue
+Skript-Adressen, und ein Browser kann nie neues HTML mit altem JS aus dem Cache mischen.
+Das ist nach dem Deploy der Länder-Adressen passiert: altes `stats.js` griff auf ein
+entferntes Element zu. **Neue Skripte deshalb immer mit `?v=dev` einbinden**,
+`tests/cache-busting.test.js` prüft das.
 
 **Content-Security-Policy** steht als `<meta>`-Tag in allen drei HTML-Dateien:
 `script-src 'self'` (keine Inline-Skripte, kein `eval`/`new Function`), Bilder nur von
