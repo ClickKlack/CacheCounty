@@ -151,6 +151,18 @@ jobs:
         run: |
           echo "{\"commit\":\"$(git rev-parse --short HEAD)\",\"built\":\"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > public/app/version.json
 
+      # Eigene Skripte/Styles sind in den HTML-Dateien als ?v=dev eingebunden. Hier wird der
+      # Commit eingesetzt: Nach jedem Deploy ändern sich die Adressen, Browser können keine
+      # alten Kopien aus dem Cache mehr mit neuem HTML mischen (HTML selbst ist no-cache).
+      - name: Cache-Busting für eigene Skripte und Styles
+        run: |
+          v=$(git rev-parse --short HEAD)
+          sed -i "s/?v=dev\"/?v=$v\"/g" public/app/index.html public/app/stats.html public/app/admin.html
+          if grep -n '?v=dev"' public/app/*.html; then
+            echo "::error::Platzhalter ?v=dev nicht vollständig ersetzt"; exit 1
+          fi
+          grep -c "?v=$v\"" public/app/*.html
+
       # Docroot auf dem Server ist $DEPLOY_PATH/public – alles andere liegt außerhalb
       # und ist nicht per HTTP erreichbar. Die .htaccess in der Repo-Wurzel leitet
       # zusätzlich nach public/ um, falls das Docroot doch auf $DEPLOY_PATH zeigt.
