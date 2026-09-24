@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
       els.loginEmail.value = '';
     } catch (e) {
       els.loginMsg.className   = 'login-msg error';
-      els.loginMsg.textContent = '✕ ' + e.message;
+      els.loginMsg.textContent = '✕ ' + Api.magicLinkErrorText(e);
       els.loginMsg.classList.remove('hidden');
     } finally {
       els.btnSendMagic.disabled = false;

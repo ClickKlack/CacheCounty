@@ -89,8 +89,10 @@ class Request
         }
 
         // If REMOTE_ADDR is a private/reserved address we are behind a local
-        // reverse proxy (e.g. Apache mod_proxy on shared hosting).
-        // In that case, pick the first public IP from X-Forwarded-For.
+        // reverse proxy (e.g. nginx in front of Apache on shared hosting).
+        // In that case, use the LAST public IP from X-Forwarded-For: our proxy
+        // appends the real client address at the end, everything before it was
+        // sent by the client and can be forged (e.g. to bypass rate limits).
         $isPrivate = filter_var(
             $remoteAddr,
             FILTER_VALIDATE_IP,
@@ -98,7 +100,7 @@ class Request
         ) === false;
 
         if ($isPrivate && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $candidate) {
+            foreach (array_reverse(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])) as $candidate) {
                 $candidate = trim($candidate);
                 if (filter_var(
                     $candidate,

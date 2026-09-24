@@ -31,7 +31,7 @@ abstract class ApiTestCase extends TestCase
     // Besuch von User A, den andere Nutzer nicht verändern dürfen
     protected const VISIT_A_CODE = 'DE-09162';
 
-    private const TABLES = ['sessions', 'magic_links', 'visits', 'users'];
+    private const TABLES = ['auth_attempts', 'sessions', 'magic_links', 'visits', 'users'];
 
     private static ?PDO $pdo = null;
     private static ?string $baseUrl = null;

@@ -75,8 +75,8 @@ Umstellung nicht geändert.
 
 ```bash
 # Tests
-npm test                          # Vitest, 59 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 48 Unit- + 107 Integrationstests
+npm test                          # Vitest, 62 Tests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 50 Unit- + 117 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -251,6 +251,9 @@ hinter dem Reverse-Proxy des Hosters fehlt die Variable oft.
 **Client-IP** (`Request::ip()`) nutzt `CF-Connecting-IP` nur bei
 `trust_cloudflare = true` in `app.local.php`. Produktion läuft nicht hinter Cloudflare,
 dort bleibt der Wert `false` – sonst könnte jeder Client seine IP frei wählen.
+Hinter dem lokalen Reverse-Proxy des Hosters (private `REMOTE_ADDR`) gilt die **letzte**
+öffentliche IP aus `X-Forwarded-For`: Die hängt der Proxy an, alles davor kommt vom
+Client und ist fälschbar. Wichtig fürs Rate Limiting – nicht auf „erste IP" umstellen.
 
 ---
 
@@ -344,8 +347,20 @@ Guard-Klausel – ohne sie würde jeder Download das Bundesland mit umschalten.
 `POST /api/auth/logout` beendet die aktuelle Session, `POST /api/auth/logout-all` alle
 Sessions des Nutzers („Überall abmelden" in `app.js`).
 
+**Rate Limiting und Enumerationsschutz** in `requestMagicLink`:
+- pro IP höchstens 20 Anfragen je Stunde, gezählt in `auth_attempts`, danach 429
+- pro Konto höchstens 3 Links in 15 Minuten; weitere werden **still** nicht verschickt,
+  die Antwort bleibt gleich
+- SMTP-Fehler werden abgefangen und geloggt, die Antwort bleibt 200; PHPMailer-Timeout 10 s
+- Mindestantwortzeit 1,5 s für bekannte und unbekannte Adressen
+
+Die Grenzwerte sind Konstanten im `AuthController`. Die Integrationstests setzen
+kleinere Werte über `magic_link_*`-Schlüssel ihrer Test-Konfiguration. Das Frontend
+übersetzt 429/400 über `Api.magicLinkErrorText()` ins Deutsche.
+
 **Garbage Collection** läuft probabilistisch: bei 2 % aller Magic-Link-Requests werden
-abgelaufene Tokens und Sessions gelöscht (`AuthController::maybeRunGc`). Das ersetzt
+abgelaufene Tokens und Sessions sowie `auth_attempts` älter als ein Tag gelöscht
+(`AuthController::maybeRunGc`). Das ersetzt
 den Cronjob, den Shared Hosting nicht bietet – nicht durch einen SQL-Event ersetzen.
 
 **User-Anlage nur durch Admins.** Es gibt keine Selbstregistrierung. Der Initial-Admin

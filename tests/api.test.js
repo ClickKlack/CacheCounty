@@ -267,6 +267,27 @@ describe('Api.verifyToken', () => {
   })
 })
 
+// ── Fehlermeldungen Magic Link ─────────────────────────────────────────────
+
+describe('Api.magicLinkErrorText', () => {
+  const { Api } = buildApi()
+
+  it('explains the rate limit in German', () => {
+    const err = Object.assign(new Error('Too many requests.'), { status: 429 })
+    expect(Api.magicLinkErrorText(err)).toBe('Zu viele Anfragen. Bitte versuche es später erneut.')
+  })
+
+  it('explains an invalid address in German', () => {
+    const err = Object.assign(new Error('Invalid e-mail address.'), { status: 400 })
+    expect(Api.magicLinkErrorText(err)).toBe('Bitte gib eine gültige E-Mail-Adresse ein.')
+  })
+
+  it('passes other messages through (e.g. the German "no JSON" hint)', () => {
+    const err = Object.assign(new Error('Die API hat kein JSON geliefert (HTTP 502). Läuft der PHP-Server?'), { status: 502 })
+    expect(Api.magicLinkErrorText(err)).toContain('Läuft der PHP-Server?')
+  })
+})
+
 // ── 401-Behandlung ─────────────────────────────────────────────────────────
 
 describe('Unauthorized handler', () => {

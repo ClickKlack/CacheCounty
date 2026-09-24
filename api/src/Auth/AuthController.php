@@ -21,6 +21,13 @@ class AuthController
     // Probability (1–100) of running garbage collection on each magic-link request
     private const GC_PROBABILITY     = 2;
 
+    // Rate limits for POST /api/auth/magic-link (overridable via app config for tests)
+    private const IP_LIMIT_PER_HOUR  = 20;   // requests per IP and hour → 429 beyond
+    private const USER_LIMIT_15_MIN  = 3;    // links per account in 15 min → silently skipped
+    // Minimum response time, so known and unknown addresses cannot be told apart
+    // by timing. Residual risk: if SMTP takes longer than this, the difference shows.
+    private const MIN_RESPONSE_MS    = 1500;
+
     // -------------------------------------------------------------------------
 
     /**
@@ -28,17 +35,24 @@ class AuthController
      * Body: { "email": "user@example.com" }
      *
      * Generates a magic link token and sends it via e-mail.
-     * Always returns a generic success message to prevent e-mail enumeration.
+     * Always returns the same generic success message – same status, same body,
+     * same minimum duration – whether the address is known or not (no enumeration).
+     *
+     * Rate limits: per IP (429 beyond the limit) and per account (further links are
+     * silently not sent, so the limit does not reveal whether the address exists).
      */
     public function requestMagicLink(Request $request): void
     {
-        $email = trim((string) $request->input('email', ''));
+        $startedAt = microtime(true);
+        $email     = trim((string) $request->input('email', ''));
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Response::error('Invalid e-mail address.');
         }
 
-        $db   = Database::get();
+        $db = Database::get();
+        $this->enforceIpLimit($db, $request->ip());
+
         $stmt = $db->prepare(
             'SELECT id FROM users WHERE email = ? AND is_active = 1 LIMIT 1'
         );
@@ -46,7 +60,7 @@ class AuthController
         $user = $stmt->fetch();
 
         // Silently succeed even when the e-mail is unknown (no enumeration)
-        if ($user) {
+        if ($user && !$this->userLimitReached($db, (int) $user['id'])) {
             $token     = Token::generate();
             $expiresAt = gmdate('Y-m-d H:i:s', strtotime('+' . self::MAGIC_LINK_TTL_MIN . ' minutes'));
 
@@ -56,12 +70,19 @@ class AuthController
                  VALUES (?, ?, ?, ?)'
             )->execute([$user['id'], Token::hash($token), $expiresAt, $request->ip()]);
 
-            $this->sendMagicLinkEmail($email, $token);
+            // A mail failure must not change the response – otherwise it would only
+            // ever show up for registered addresses
+            try {
+                $this->sendMagicLinkEmail($email, $token);
+            } catch (\Throwable $e) {
+                error_log('[CacheCounty] Magic link mail failed: ' . $e->getMessage());
+            }
         }
 
         // Probabilistic garbage collection (no SQL events on shared hosting)
         $this->maybeRunGc();
 
+        $this->padResponseTime($startedAt);
         Response::ok(['message' => 'If this e-mail is registered, a login link has been sent.']);
     }
 
@@ -246,6 +267,7 @@ class AuthController
         $mail = new PHPMailer(true);
         $mail->CharSet = 'UTF-8';
         $mail->isSMTP();
+        $mail->Timeout    = 10;   // default is 300 s – a hanging mail server must not block logins
         $mail->Host       = $config['smtp_host']   ?? '';
         $mail->Port       = (int) ($config['smtp_port']   ?? 587);
         $mail->Username   = $config['smtp_user'] ?? '';
@@ -350,6 +372,56 @@ class AuthController
     }
 
     /**
+     * Counts magic-link requests per IP within the last hour and exits with 429
+     * beyond the limit. Every request counts, known address or not.
+     */
+    private function enforceIpLimit(\PDO $db, string $ip): void
+    {
+        $limit = (int) (Config::app()['magic_link_ip_limit_per_hour'] ?? self::IP_LIMIT_PER_HOUR);
+
+        $stmt = $db->prepare(
+            'SELECT COUNT(*) FROM auth_attempts
+              WHERE ip_address = ? AND created_at > NOW() - INTERVAL 1 HOUR'
+        );
+        $stmt->execute([$ip]);
+
+        if ((int) $stmt->fetchColumn() >= $limit) {
+            Response::error('Too many requests.', 429);
+        }
+
+        $db->prepare('INSERT INTO auth_attempts (ip_address) VALUES (?)')->execute([$ip]);
+    }
+
+    /**
+     * True if the account already got the maximum number of links in the last 15 minutes.
+     */
+    private function userLimitReached(\PDO $db, int $userId): bool
+    {
+        $limit = (int) (Config::app()['magic_link_user_limit_per_15min'] ?? self::USER_LIMIT_15_MIN);
+
+        $stmt = $db->prepare(
+            'SELECT COUNT(*) FROM magic_links
+              WHERE user_id = ? AND created_at > NOW() - INTERVAL 15 MINUTE'
+        );
+        $stmt->execute([$userId]);
+
+        return (int) $stmt->fetchColumn() >= $limit;
+    }
+
+    /**
+     * Sleeps until at least MIN_RESPONSE_MS have passed since $startedAt.
+     */
+    private function padResponseTime(float $startedAt): void
+    {
+        $minMs     = (int) (Config::app()['magic_link_min_response_ms'] ?? self::MIN_RESPONSE_MS);
+        $elapsedMs = (microtime(true) - $startedAt) * 1000;
+
+        if ($elapsedMs < $minMs) {
+            usleep((int) (($minMs - $elapsedMs) * 1000));
+        }
+    }
+
+    /**
      * Probabilistic garbage collection for expired tokens and sessions.
      * Runs with a probability of GC_PROBABILITY percent.
      */
@@ -362,5 +434,6 @@ class AuthController
         $db = Database::get();
         $db->exec('DELETE FROM magic_links WHERE expires_at < NOW()');
         $db->exec('DELETE FROM sessions     WHERE expires_at < NOW()');
+        $db->exec('DELETE FROM auth_attempts WHERE created_at < NOW() - INTERVAL 1 DAY');
     }
 }

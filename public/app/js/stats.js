@@ -563,10 +563,11 @@
     try {
       await Api.sendMagicLink(email);
       els.loginMsg.style.display = '';
+      els.loginMsg.style.color   = '';
       els.loginMsg.textContent   = 'Link wurde gesendet – bitte E-Mail prüfen.';
     } catch (err) {
       els.loginMsg.style.display = '';
-      els.loginMsg.textContent   = err.message;
+      els.loginMsg.textContent   = Api.magicLinkErrorText(err);
       els.loginMsg.style.color   = 'var(--rust)';
     } finally {
       els.btnSendLink.disabled = false;

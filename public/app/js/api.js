@@ -54,8 +54,16 @@ const Api = (() => {
     return data.data ?? data;
   }
 
+  // Deutsche Meldung für Fehler beim Anfordern eines Magic Links
+  function magicLinkErrorText(err) {
+    if (err.status === 429) return 'Zu viele Anfragen. Bitte versuche es später erneut.';
+    if (err.status === 400) return 'Bitte gib eine gültige E-Mail-Adresse ein.';
+    return err.message;
+  }
+
   return {
     setUnauthorizedHandler: (fn) => { unauthorizedHandler = fn; },
+    magicLinkErrorText,
 
     // ── Auth ──────────────────────────────────────────────
     sendMagicLink: (email)  => request('POST', '/auth/magic-link', { email }),

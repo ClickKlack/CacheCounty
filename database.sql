@@ -100,6 +100,20 @@ CREATE TABLE sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- -------------------------------------------------------------
+--  Tabelle: auth_attempts
+--  Magic-Link-Anfragen je IP für das Rate Limiting (1 Tag aufbewahrt)
+-- -------------------------------------------------------------
+CREATE TABLE auth_attempts (
+    id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ip_address    VARCHAR(45)     NOT NULL,
+    created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY         idx_auth_attempts_ip (ip_address, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- =============================================================
 --  Initialdaten
 -- =============================================================
@@ -164,4 +178,18 @@ VALUES ('admin', 'admin@example.com', 1, 1);
 -- =============================================================
 -- UPDATE sessions    SET id    = SHA2(id, 256);
 -- UPDATE magic_links SET token = SHA2(token, 256);
+-- =============================================================
+
+-- =============================================================
+--  Migration: Tabelle auth_attempts (Rate Limiting Magic Link)
+--  Direkt nach dem Deploy ausführen, der das Rate Limiting einführt –
+--  ohne die Tabelle schlägt jede Magic-Link-Anfrage mit 500 fehl.
+-- =============================================================
+-- CREATE TABLE auth_attempts (
+--     id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+--     ip_address    VARCHAR(45)     NOT NULL,
+--     created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     PRIMARY KEY (id),
+--     KEY         idx_auth_attempts_ip (ip_address, created_at)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- =============================================================
