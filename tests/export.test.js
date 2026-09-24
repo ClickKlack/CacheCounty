@@ -1,5 +1,5 @@
 /**
- * Tests for app/js/export.js
+ * Tests for public/app/js/export.js
  *
  * export.js exposes `CacheExport` as a global via an IIFE.
  * We load it by evaluating the source in a context that provides
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const exportSource = readFileSync(resolve(__dirname, '../app/js/export.js'), 'utf-8')
+const exportSource = readFileSync(resolve(__dirname, '../public/app/js/export.js'), 'utf-8')
 
 function buildExport() {
   const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() }

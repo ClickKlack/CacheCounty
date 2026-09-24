@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-define('BASE_PATH', dirname(__DIR__));
+// Front controller lives in the docroot (public/api/), the application in api/ outside it
+define('BASE_PATH', dirname(__DIR__, 2) . '/api');
 
 require BASE_PATH . '/vendor/autoload.php';
 

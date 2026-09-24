@@ -120,8 +120,11 @@ jobs:
 
       - name: Version-Datei erzeugen
         run: |
-          echo "{\"commit\":\"$(git rev-parse --short HEAD)\",\"built\":\"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > app/version.json
+          echo "{\"commit\":\"$(git rev-parse --short HEAD)\",\"built\":\"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > public/app/version.json
 
+      # Docroot auf dem Server ist $DEPLOY_PATH/public – alles andere liegt außerhalb
+      # und ist nicht per HTTP erreichbar. Die .htaccess in der Repo-Wurzel leitet
+      # zusätzlich nach public/ um, falls das Docroot doch auf $DEPLOY_PATH zeigt.
       - name: Dateien via rsync übertragen
         env:
           SSH_HOST:    ${{ secrets.SSH_HOST }}
@@ -133,11 +136,15 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='.vscode/' \
+            --exclude='docs/' \
             --exclude='scripts/' \
             --exclude='tests/' \
+            --exclude='api/tests/' \
             --exclude='node_modules/' \
             --exclude='api/config/*.local.php' \
             --exclude='api/config/database.local.php' \
-            --exclude='data/*.geojson' \
+            --exclude='public/data/*.geojson' \
+            --exclude='/data/' \
             --exclude='*.bak.*' \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"

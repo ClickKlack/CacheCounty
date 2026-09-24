@@ -29,8 +29,8 @@ Strikte Trennung von Frontend und Backend über eine REST-API.
 
 ```
 /api/        → PHP REST-API (JSON-Responses)
-/app/        → Frontend (HTML, CSS, Vanilla JS)
-/data/       → GeoJSON-Dateien pro Land
+/public/app/  → Frontend (HTML, CSS, Vanilla JS)
+/public/data/ → GeoJSON-Dateien pro Land
 /config/     → Länderkonfiguration (countries.json)
 ```
 

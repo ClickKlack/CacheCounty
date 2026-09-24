@@ -3,9 +3,12 @@ api/.phpunit.result.cache
 node_modules/
 api/config/database.local.php
 api/config/app.local.php
-data/*.geojson
+# Geodaten: Ordner ist versioniert (.gitkeep), die Inhalte nicht
+public/data/*
+!public/data/.gitkeep
+# Alter Speicherort vor der Umstellung auf public/ – nur noch lokale Altbestände
+/data/
 .env
-router.php
 
 # Lokale Dev-Umgebung (scripts/dev.sh) – Vorlage dev.config.example.sh ist versioniert
 scripts/dev.config.sh

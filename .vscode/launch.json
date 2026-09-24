@@ -10,7 +10,7 @@
             "request": "launch",
             "port": 9003,
             "pathMappings": {
-                "${workspaceFolder}/api/public": "${workspaceFolder}/api/public"
+                "${workspaceFolder}/public/api": "${workspaceFolder}/public/api"
             }
             },
         {
