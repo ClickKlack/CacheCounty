@@ -273,6 +273,7 @@ Datei: `/config/countries.json`
     "geojson": "data/de_landkreise.geojson",
     "region_name_property": "GEN",
     "region_code_property": "AGS",
+    "region_code_pattern": "^[0-9]{5}$",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
   }
@@ -287,9 +288,10 @@ Felder je Land:
 | `label`                | ✅      | Anzeigename in der Länder-Selectbox                               |
 | `state_label`          | ✅      | Singular-Bezeichnung der übergeordneten Einheit (z. B. „Bundesland") |
 | `state_label_plural`   | –       | Plural-Form (z. B. „Bundesländer") – wird für Meilenstein-Texte verwendet |
-| `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Projektstamm                   |
+| `geojson`              | ✅      | Pfad zur GeoJSON-Datei relativ zum Docroot (`public/`)            |
 | `region_name_property` | ✅      | GeoJSON-Property für den Landkreisnamen                           |
 | `region_code_property` | ✅      | GeoJSON-Property für den Landkreis-Code (eindeutig)               |
+| `region_code_pattern`  | –       | Regex für gültige Landkreis-Codes, z. B. `^[0-9]{5}$` (AGS). Die API lehnt Besuche mit abweichendem Code ab. Ohne Angabe gilt nur eine Längengrenze von 20 Zeichen |
 | `state_name_property`  | ✅      | GeoJSON-Property für den Bundesland-Namen                         |
 | `state_code_property`  | ✅      | GeoJSON-Property für den Bundesland-Code (Gruppierungsschlüssel)  |
 

@@ -144,7 +144,19 @@ cachecounty/
 | GET    | /api/stats/{username}             | –       |
 | GET    | /api/leaderboard                  | –       |
 
-Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`.
+Region-Code-Format: `{COUNTRY}-{REGION}`, z. B. `DE-09162` oder `AT-101`. Das Land muss in
+`config/countries.json` konfiguriert sein, der Regionsteil zum `region_code_pattern` des
+Landes passen. Sonst antwortet die API mit 400.
+
+**Bestandsdaten prüfen:** Besuche, die vor Einführung der Prüfung mit ungültigen Codes
+angelegt wurden, findet diese Abfrage. Bereinigt wird bewusst nicht automatisch:
+
+```sql
+SELECT u.username, v.country_code, v.region_code, v.created_at
+  FROM visits v JOIN users u ON u.id = v.user_id
+ WHERE NOT (   (v.country_code = 'DE' AND v.region_code REGEXP '^[0-9]{5}$')
+            OR (v.country_code = 'AT' AND v.region_code REGEXP '^[0-9]{3}$'));
+```
 
 ---
 

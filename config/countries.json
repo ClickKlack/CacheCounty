@@ -7,6 +7,7 @@
     "geojson": "data/de_landkreise.geojson",
     "region_name_property": "GEN",
     "region_code_property": "AGS",
+    "region_code_pattern": "^[0-9]{5}$",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
   },
@@ -18,6 +19,7 @@
     "geojson": "data/at_bezirke.geojson",
     "region_name_property": "PB",
     "region_code_property": "PB_ID",
+    "region_code_pattern": "^[0-9]{3}$",
     "state_name_property": "BL",
     "state_code_property": "BL_ID"
   }

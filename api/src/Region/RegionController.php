@@ -10,6 +10,14 @@ use CacheCounty\Shared\Response;
 
 class RegionController
 {
+    // Upper bounds for free-text input (visits.region_name is VARCHAR(255))
+    private const MAX_NOTES_LENGTH       = 2000;
+    private const MAX_REGION_NAME_LENGTH = 255;
+    // Fallback when a country defines no region_code_pattern (visits.region_code is VARCHAR(20))
+    private const MAX_REGION_CODE_LENGTH = 20;
+
+    private static ?array $countryConfig = null;
+
     /**
      * GET /api/countries
      *
@@ -17,18 +25,7 @@ class RegionController
      */
     public function countries(Request $request): void
     {
-        $file = BASE_PATH . '/../config/countries.json';
-
-        if (!file_exists($file)) {
-            Response::error('Country configuration not found.', 500);
-        }
-
-        $countries = json_decode(file_get_contents($file), true);
-
-        if (!is_array($countries)) {
-            Response::error('Invalid country configuration.', 500);
-        }
-
+        // region_code_pattern is deliberately not exposed – only the server needs it
         $result = array_map(fn($c) => [
             'code'                 => $c['code'],
             'label'                => $c['label'],
@@ -39,7 +36,7 @@ class RegionController
             'region_code_property' => $c['region_code_property'] ?? null,
             'state_name_property'  => $c['state_name_property']  ?? null,
             'state_code_property'  => $c['state_code_property']  ?? null,
-        ], $countries);
+        ], array_values($this->loadCountries()));
 
         Response::ok($result);
     }
@@ -113,9 +110,9 @@ class RegionController
         $user                              = Guard::requireAuth($request);
         [$countryCode, $regionCode]        = $this->parseCode($request->param('code'));
 
-        $regionName = (string) $request->input('region_name', '');
+        $regionName = $this->optionalText($request, 'region_name', self::MAX_REGION_NAME_LENGTH);
         $visitedAt  = $request->input('visited_at');
-        $notes      = $request->input('notes');
+        $notes      = $this->optionalText($request, 'notes', self::MAX_NOTES_LENGTH);
 
         $db = Database::get();
 
@@ -156,7 +153,7 @@ class RegionController
         [$countryCode, $regionCode] = $this->parseCode($request->param('code'));
 
         $visitedAt = $request->input('visited_at');
-        $notes     = $request->input('notes');
+        $notes     = $this->optionalText($request, 'notes', self::MAX_NOTES_LENGTH);
 
         $db   = Database::get();
         $stmt = $db->prepare(
@@ -207,8 +204,37 @@ class RegionController
     // -------------------------------------------------------------------------
 
     /**
-     * Splits "DE-09162" into ["DE", "09162"].
-     * Exits with 400 if the format is invalid.
+     * Country configuration from config/countries.json, keyed by country code.
+     * Exits with 500 if the file is missing or invalid.
+     */
+    private function loadCountries(): array
+    {
+        if (self::$countryConfig === null) {
+            $file = BASE_PATH . '/../config/countries.json';
+
+            if (!file_exists($file)) {
+                Response::error('Country configuration not found.', 500);
+            }
+
+            $countries = json_decode(file_get_contents($file), true);
+
+            if (!is_array($countries)) {
+                Response::error('Invalid country configuration.', 500);
+            }
+
+            self::$countryConfig = array_column($countries, null, 'code');
+        }
+
+        return self::$countryConfig;
+    }
+
+    /**
+     * Splits "DE-09162" into ["DE", "09162"] and validates both parts:
+     * the country must be configured, the region code must match the country's
+     * region_code_pattern (if set). Exits with 400 otherwise.
+     *
+     * This keeps made-up visits out of the leaderboard – the actual list of
+     * regions only exists in the GeoJSON, which is too large to parse per request.
      */
     private function parseCode(string $code): array
     {
@@ -218,7 +244,52 @@ class RegionController
             Response::error('Invalid region code format. Expected <COUNTRY>-<REGION>, e.g. DE-09162.');
         }
 
-        return [strtoupper($parts[0]), $parts[1]];
+        [$countryCode, $regionCode] = [strtoupper($parts[0]), $parts[1]];
+        $country = $this->loadCountries()[$countryCode] ?? null;
+
+        if ($country === null) {
+            Response::error('Unknown country code.');
+        }
+
+        if ($regionCode === '' || strlen($regionCode) > self::MAX_REGION_CODE_LENGTH) {
+            Response::error('Invalid region code.');
+        }
+
+        $pattern = $country['region_code_pattern'] ?? null;
+        if ($pattern !== null) {
+            $match = preg_match('#' . str_replace('#', '\\#', $pattern) . '#', $regionCode);
+            if ($match === false) {
+                throw new \RuntimeException("Invalid region_code_pattern for $countryCode in countries.json");
+            }
+            if ($match === 0) {
+                Response::error('Invalid region code for this country.');
+            }
+        }
+
+        return [$countryCode, $regionCode];
+    }
+
+    /**
+     * Optional text field from the JSON body: null/empty → null, otherwise a string
+     * of at most $maxLength characters. Exits with 400 on wrong type or length.
+     */
+    private function optionalText(Request $request, string $field, int $maxLength): ?string
+    {
+        $value = $request->input($field);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            Response::error("Field '$field' must be a string.");
+        }
+
+        if (mb_strlen($value) > $maxLength) {
+            Response::error("Field '$field' must not exceed $maxLength characters.");
+        }
+
+        return $value;
     }
 
     /**

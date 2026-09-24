@@ -76,7 +76,7 @@ Umstellung nicht geändert.
 ```bash
 # Tests
 npm test                          # Vitest, 62 Tests
-cd api && ./vendor/bin/phpunit    # PHPUnit: 50 Unit- + 117 Integrationstests
+cd api && ./vendor/bin/phpunit    # PHPUnit: 50 Unit- + 134 Integrationstests
 
 # Abhängigkeiten
 cd api && composer install --optimize-autoloader
@@ -174,6 +174,14 @@ Landkreis → Bundesland wird zur Laufzeit clientseitig aus den GeoJSON-Properti
 abgeleitet (`region_code_property`, `state_code_property` …) – es gibt bewusst
 **keine** Regionen-Tabelle in der Datenbank. Wer eine solche Tabelle einführen will,
 bricht dieses Prinzip.
+
+**Besuche werden serverseitig validiert, ohne das GeoJSON zu lesen.**
+`RegionController::parseCode()` prüft, dass das Land in `countries.json` steht und der
+Regionscode zum optionalen `region_code_pattern` des Landes passt (DE `^[0-9]{5}$`,
+AT `^[0-9]{3}$`). Ob der Code wirklich existiert, weiß nur das GeoJSON; es pro Request
+zu parsen (3,8 MB) wäre zu teuer. Das Muster ist der Kompromiss gegen erfundene
+Besuche in der Rangliste. Ein neues Land sollte ein Muster mitbringen. Freitexte:
+`notes` höchstens 2000 Zeichen, `region_name` höchstens 255, beide nur als String.
 
 **Die Datenbank kennt nur Besuche.** `visits` speichert `country_code` + `region_code`
 + einen denormalisierten `region_name`. Gesamtzahlen („42 von 401") stammen immer aus
